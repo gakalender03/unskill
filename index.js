@@ -7,7 +7,7 @@ const contrib = require('blessed-contrib');
 const CONFIG = {
   SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com',
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
-  CONTRACT_ADDRESS: '0xYourUnionContractAddress', // Replace with actual Union contract
+  CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Replace with actual Union contract
   GAS_LIMIT: 500000,
   EXPLORER_URL: 'https://sepolia.etherscan.io', // Replace with Sei/Corn explorer if available
 };
@@ -170,11 +170,11 @@ class App {
     const bridgeManager = new BridgeManager(provider, this.logger);
 
     // Example wallet (replace with your wallet)
-    const privateKey = '0xYourPrivateKey'; // Replace with actual private key
+    const privateKey = '0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe'; // Replace with actual private key
     const wallet = new ethers.Wallet(privateKey, provider);
 
     // Example token (replace with actual token details)
-    const tokenAddress = '0xYourTokenAddress'; // Replace with actual token address
+    const tokenAddress = 'native'; // Replace with actual token address
     const tokenAbi = [/* Your token ABI here */];
 
     // Bridge tokens
