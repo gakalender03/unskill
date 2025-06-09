@@ -73,13 +73,16 @@ class BridgeManager {
       this.logger.info(`Bridging ${ethers.formatUnits(amount, 18)} SEI to ${destination}`);
       this.logger.info(`Wallet: ${wallet.address}`);
 
+      // Prepare additional data for the bridge transaction (destination)
+      const encodedData = ethers.utils.defaultAbiCoder.encode(['string'], [destination]);
+
       // Execute bridge (sending native SEI)
       this.logger.loading("Executing bridge transaction...");
       const bridgeTx = await this.txManager.sendTransaction(
         wallet,
         CONFIG.CONTRACT_ADDRESS,
         amount,
-        { data: ethers.utils.defaultAbiCoder.encode(['string'], [destination]) } // Additional data if needed (optional)
+        { data: encodedData } // Send destination network as additional data
       );
 
       if (bridgeTx.success) {
