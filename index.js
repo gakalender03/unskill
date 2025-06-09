@@ -3,9 +3,9 @@ const axios = require('axios');
 
 // ========== CONFIGURATION ==========
 const CONFIG = {
-  SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com',
+  SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com', // Sei testnet RPC
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
-  CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Replace with actual Union bridge contract
+  CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Union Bridge contract address (replace with correct one)
   GAS_LIMIT: 500000,
   EXPLORER_URL: 'https://sepolia.etherscan.io', // Replace with Sei/Corn explorer if available
 };
@@ -43,12 +43,13 @@ class TransactionManager {
     this.logger = logger;
   }
 
-  async sendTransaction(wallet, contractAddress, abi, method, args, options = {}) {
+  async sendTransaction(wallet, to, amount, options = {}) {
     try {
-      const contract = new ethers.Contract(contractAddress, abi, wallet);
-      const tx = await contract[method](...args, { 
-        gasLimit: CONFIG.GAS_LIMIT, 
-        ...options 
+      const tx = await wallet.sendTransaction({
+        to: to,
+        value: amount,
+        gasLimit: CONFIG.GAS_LIMIT,
+        ...options
       });
       const receipt = await tx.wait();
       return { success: true, receipt };
@@ -67,41 +68,18 @@ class BridgeManager {
     this.txManager = new TransactionManager(provider, this.logger);
   }
 
-  async bridgeTokens(wallet, tokenAddress, abi, amount, destination) {
+  async bridgeTokens(wallet, amount, destination) {
     try {
-      this.logger.info(`Bridging ${ethers.formatUnits(amount, 18)} tokens to ${destination}`);
+      this.logger.info(`Bridging ${ethers.formatUnits(amount, 18)} SEI to ${destination}`);
       this.logger.info(`Wallet: ${wallet.address}`);
 
-      // Check token balance
-      const tokenContract = new ethers.Contract(tokenAddress, abi, wallet);
-      const balance = await tokenContract.balanceOf(wallet.address);
-
-      if (balance < amount) {
-        throw new Error(`Insufficient balance. Needed: ${ethers.formatUnits(amount, 18)}, Have: ${ethers.formatUnits(balance, 18)}`);
-      }
-
-      // Approve token spending
-      this.logger.loading("Approving token spending...");
-      const approveTx = await this.txManager.sendTransaction(
-        wallet,
-        tokenAddress,
-        abi,
-        'approve',
-        [CONFIG.CONTRACT_ADDRESS, amount]
-      );
-
-      if (!approveTx.success) {
-        throw new Error("Token approval failed");
-      }
-
-      // Execute bridge
+      // Execute bridge (sending native SEI)
       this.logger.loading("Executing bridge transaction...");
       const bridgeTx = await this.txManager.sendTransaction(
         wallet,
         CONFIG.CONTRACT_ADDRESS,
-        BRIDGE_ABI,
-        'bridgeTokens',
-        [tokenAddress, amount, destination]
+        amount,
+        { data: ethers.utils.defaultAbiCoder.encode(['string'], [destination]) } // Additional data if needed (optional)
       );
 
       if (bridgeTx.success) {
@@ -154,18 +132,16 @@ class App {
       
       // Setup provider and wallet (replace with your private key)
       const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
-      const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider); // <- REPLACE THIS
+      const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider); // Replace 'YOUR_PRIVATE_KEY' with your actual private key
       
       // Initialize bridge manager
       const bridgeManager = new BridgeManager(provider, this.logger);
       
-      // Token details (replace with your token)
-      const tokenAddress = 'native'; // <- REPLACE THIS
-      const tokenAbi = [/* Your ERC20 ABI here */]; // <- REPLACE THIS
-      const amount = ethers.parseUnits('10', 18); // 10 tokens
+      // Set amount to bridge (0.0001 SEI)
+      const amount = ethers.parseUnits('0.0001', 18); // 0.0001 SEI
       
-      // Execute bridge
-      await bridgeManager.bridgeTokens(wallet, tokenAddress, tokenAbi, amount, 'corn');
+      // Execute bridge to Corn testnet
+      await bridgeManager.bridgeTokens(wallet, amount, 'corn');
       
       this.logger.info('Bridge completed successfully!');
     } catch (error) {
@@ -174,21 +150,6 @@ class App {
     }
   }
 }
-
-// ========== BRIDGE ABI (SIMPLIFIED) ==========
-const BRIDGE_ABI = [
-  {
-    "inputs": [
-      {"internalType": "address", "name": "token", "type": "address"},
-      {"internalType": "uint256", "name": "amount", "type": "uint256"},
-      {"internalType": "string", "name": "destination", "type": "string"}
-    ],
-    "name": "bridgeTokens",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  }
-];
 
 // ========== START APPLICATION ==========
 new App().init();
