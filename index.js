@@ -7,7 +7,7 @@ const contrib = require('blessed-contrib');
 const CONFIG = {
   SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com',
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
-  CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Replace with actual Union contract
+  CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Replace with actual Union bridge contract
   GAS_LIMIT: 500000,
   EXPLORER_URL: 'https://sepolia.etherscan.io', // Replace with Sei/Corn explorer if available
 };
@@ -23,15 +23,62 @@ class Utils {
   }
 }
 
+// ========== UI MANAGER ==========
+class UIManager {
+  constructor() {
+    this.screen = blessed.screen({ smartCSR: true, title: 'Sei EVM to Corn Bridge' });
+    this.grid = new contrib.grid({ rows: 12, cols: 12, screen: this.screen });
+    this.initUI();
+    this.setupKeybindings();
+  }
+
+  initUI() {
+    this.logBox = this.grid.set(0, 0, 12, 8, contrib.log, {
+      fg: 'green',
+      label: ' Transaction Logs ',
+      border: { type: "line", fg: "cyan" },
+      scrollable: true
+    });
+
+    this.statusBox = this.grid.set(0, 8, 6, 4, blessed.box, {
+      label: ' System Status ',
+      border: { type: "line", fg: "cyan" },
+      content: 'Initializing...'
+    });
+
+    this.walletBox = this.grid.set(6, 8, 6, 4, blessed.box, {
+      label: ' Wallet Info ',
+      border: { type: "line", fg: "cyan" },
+      content: 'Loading...'
+    });
+
+    this.screen.render();
+  }
+
+  setupKeybindings() {
+    this.screen.key(['escape', 'q', 'C-c'], () => process.exit(0));
+  }
+
+  updateStatus(content) {
+    this.statusBox.setContent(content);
+    this.screen.render();
+  }
+
+  updateWalletInfo(content) {
+    this.walletBox.setContent(content);
+    this.screen.render();
+  }
+}
+
 // ========== LOGGER ==========
 class Logger {
-  constructor(logBox) {
-    this.logBox = logBox;
+  constructor(uiManager) {
+    this.ui = uiManager;
   }
 
   log(msg, color = 'white') {
-    this.logBox.log(`{${color}-fg}${msg}{/${color}-fg}`);
-    screen.render();
+    this.ui.logBox.log(`{${color}-fg}${msg}{/${color}-fg}`);
+    this.ui.screen.render();
   }
 
   info(msg) { this.log(`[ℹ] ${msg}`, 'green'); }
@@ -51,66 +98,60 @@ class TransactionManager {
   async sendTransaction(wallet, contractAddress, abi, method, args, options = {}) {
     try {
       const contract = new ethers.Contract(contractAddress, abi, wallet);
-      const tx = await contract[method](...args, { gasLimit: CONFIG.GAS_LIMIT, ...options });
+      const tx = await contract[method](...args, { 
+        gasLimit: CONFIG.GAS_LIMIT, 
+        ...options 
+      });
       const receipt = await tx.wait();
       return { success: true, receipt };
     } catch (error) {
+      this.logger.error(`Transaction failed: ${error.message}`);
       return { success: false, error };
     }
-  }
-
-  async checkBalanceAndApprove(wallet, tokenAddress, abi, spender, tokenName) {
-    const tokenContract = new ethers.Contract(tokenAddress, abi, wallet);
-    const balance = await tokenContract.balanceOf(wallet.address);
-
-    if (balance === 0n) {
-      this.logger.error(`Insufficient ${tokenName} balance`);
-      return false;
-    }
-
-    const allowance = await tokenContract.allowance(wallet.address, spender);
-    if (allowance === 0n) {
-      this.logger.loading(`Approving ${tokenName}...`);
-      const { success } = await this.sendTransaction(
-        wallet,
-        tokenAddress,
-        abi,
-        'approve',
-        [spender, ethers.MaxUint256]
-      );
-
-      if (!success) {
-        this.logger.error(`Approval failed`);
-        return false;
-      }
-    }
-    return true;
   }
 }
 
 // ========== BRIDGE MANAGER ==========
 class BridgeManager {
-  constructor(provider, logger) {
+  constructor(provider, uiManager) {
     this.provider = provider;
-    this.logger = logger;
-    this.txManager = new TransactionManager(provider, logger);
+    this.ui = uiManager;
+    this.logger = new Logger(uiManager);
+    this.txManager = new TransactionManager(provider, this.logger);
   }
 
   async bridgeTokens(wallet, tokenAddress, abi, amount, destination) {
     try {
-      // Step 1: Check balance and approve
-      const approved = await this.txManager.checkBalanceAndApprove(
+      // Update UI
+      this.ui.updateStatus(`Bridging ${ethers.formatUnits(amount, 18)} tokens to ${destination}`);
+      this.ui.updateWalletInfo(`Wallet: ${wallet.address}\nBalance: Loading...`);
+
+      // Check token balance
+      const tokenContract = new ethers.Contract(tokenAddress, abi, wallet);
+      const balance = await tokenContract.balanceOf(wallet.address);
+      this.ui.updateWalletInfo(`Wallet: ${wallet.address.slice(0, 12)}...\nBalance: ${ethers.formatUnits(balance, 18)}`);
+
+      if (balance < amount) {
+        throw new Error(`Insufficient balance. Needed: ${ethers.formatUnits(amount, 18)}, Have: ${ethers.formatUnits(balance, 18)}`);
+      }
+
+      // Approve token spending
+      this.logger.loading("Approving token spending...");
+      const approveTx = await this.txManager.sendTransaction(
         wallet,
         tokenAddress,
         abi,
-        CONFIG.CONTRACT_ADDRESS,
-        'Token'
+        'approve',
+        [CONFIG.CONTRACT_ADDRESS, amount]
       );
-      if (!approved) return;
 
-      // Step 2: Send bridge transaction
-      this.logger.loading(`Bridging tokens to ${destination}...`);
-      const { success, receipt } = await this.txManager.sendTransaction(
+      if (!approveTx.success) {
+        throw new Error("Token approval failed");
+      }
+
+      // Execute bridge
+      this.logger.loading("Executing bridge transaction...");
+      const bridgeTx = await this.txManager.sendTransaction(
         wallet,
         CONFIG.CONTRACT_ADDRESS,
         BRIDGE_ABI,
@@ -118,76 +159,92 @@ class BridgeManager {
         [tokenAddress, amount, destination]
       );
 
-      if (success) {
-        this.logger.success(`Bridge confirmed: ${CONFIG.EXPLORER_URL}/tx/${receipt.hash}`);
-        await this.pollPacketHash(receipt.hash);
+      if (bridgeTx.success) {
+        this.logger.success(`Bridge tx: ${CONFIG.EXPLORER_URL}/tx/${bridgeTx.receipt.hash}`);
+        await this.pollPacketHash(bridgeTx.receipt.hash);
       } else {
-        this.logger.error(`Bridge failed: ${receipt.error.message}`);
+        throw new Error("Bridge transaction failed");
       }
     } catch (error) {
-      this.logger.error(`Bridge error: ${error.message}`);
+      this.logger.error(error.message);
+      throw error;
     }
   }
 
-  async pollPacketHash(txHash, retries = 50, intervalMs = 5000) {
+  async pollPacketHash(txHash, retries = 30, intervalMs = 5000) {
     for (let i = 0; i < retries; i++) {
       try {
-        const res = await axios.post(CONFIG.UNION_GRAPHQL, {
+        const response = await axios.post(CONFIG.UNION_GRAPHQL, {
           query: `query ($submission_tx_hash: String!) {
             v2_transfers(args: {p_transaction_hash: $submission_tx_hash}) {
               packet_hash
             }
           }`,
-          variables: { submission_tx_hash: txHash.startsWith('0x') ? txHash : `0x${txHash}` },
+          variables: { submission_tx_hash: txHash }
         });
 
-        const packetHash = res.data?.data?.v2_transfers[0]?.packet_hash;
+        const packetHash = response.data?.data?.v2_transfers[0]?.packet_hash;
         if (packetHash) {
-          this.logger.success(`Packet submitted: https://app.union.build/explorer/transfers/${packetHash}`);
+          this.logger.success(`Packet tracked: https://app.union.build/explorer/transfers/${packetHash}`);
           return;
         }
       } catch (error) {
-        this.logger.error(`Polling error: ${error.message}`);
+        this.logger.warn(`Retrying packet hash lookup... (${i+1}/${retries})`);
       }
       await Utils.delay(intervalMs);
     }
-    this.logger.error(`Packet hash not found for tx: ${txHash}`);
+    throw new Error("Packet hash not found");
   }
 }
 
 // ========== MAIN APPLICATION ==========
 class App {
   constructor() {
-    this.ui = blessed.screen({ smartCSR: true, title: 'Sei EVM to Corn Bridge' });
-    this.logBox = contrib.log({ fg: 'green', label: 'Logs', border: { type: 'line', fg: 'cyan' } });
-    this.ui.append(this.logBox);
-    this.logger = new Logger(this.logBox);
+    this.ui = new UIManager();
+    this.logger = new Logger(this.ui);
   }
 
   async init() {
-    this.logger.info('Initializing bridge application...');
-    const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
-    const bridgeManager = new BridgeManager(provider, this.logger);
-
-    // Example wallet (replace with your wallet)
-    const privateKey = '0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe'; // Replace with actual private key
-    const wallet = new ethers.Wallet(privateKey, provider);
-
-    // Example token (replace with actual token details)
-    const tokenAddress = 'native'; // Replace with actual token address
-    const tokenAbi = [/* Your token ABI here */];
-
-    // Bridge tokens
-    const amount = ethers.parseUnits('10', 18); // 10 tokens (adjust decimals as needed)
-    await bridgeManager.bridgeTokens(wallet, tokenAddress, tokenAbi, amount, 'corn');
-
-    this.logger.info('Bridge process completed.');
+    try {
+      this.logger.info('Initializing bridge application...');
+      
+      // Setup provider and wallet (replace with your private key)
+      const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
+      const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider); // <- REPLACE THIS
+      
+      // Initialize bridge manager
+      const bridgeManager = new BridgeManager(provider, this.ui);
+      
+      // Token details (replace with your token)
+      const tokenAddress = 'native'; // <- REPLACE THIS
+      const tokenAbi = [/* Your ERC20 ABI here */]; // <- REPLACE THIS
+      const amount = ethers.parseUnits('10', 18); // 10 tokens
+      
+      // Execute bridge
+      await bridgeManager.bridgeTokens(wallet, tokenAddress, tokenAbi, amount, 'corn');
+      
+      this.logger.info('Bridge completed successfully!');
+    } catch (error) {
+      this.logger.error(`Fatal error: ${error.message}`);
+      process.exit(1);
+    }
   }
 }
 
+// ========== BRIDGE ABI (SIMPLIFIED) ==========
+const BRIDGE_ABI = [
+  {
+    "inputs": [
+      {"internalType": "address", "name": "token", "type": "address"},
+      {"internalType": "uint256", "name": "amount", "type": "uint256"},
+      {"internalType": "string", "name": "destination", "type": "string"}
+    ],
+    "name": "bridgeTokens",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+];
+
 // ========== START APPLICATION ==========
-const app = new App();
-app.init().catch(err => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
+new App().init();
