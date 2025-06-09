@@ -1,7 +1,5 @@
 const { ethers } = require('ethers');
 const axios = require('axios');
-const blessed = require('blessed');
-const contrib = require('blessed-contrib');
 
 // ========== CONFIGURATION ==========
 const CONFIG = {
@@ -23,62 +21,12 @@ class Utils {
   }
 }
 
-// ========== UI MANAGER ==========
-class UIManager {
-  constructor() {
-    this.screen = blessed.screen({ smartCSR: true, title: 'Sei EVM to Corn Bridge' });
-    this.grid = new contrib.grid({ rows: 12, cols: 12, screen: this.screen });
-    this.initUI();
-    this.setupKeybindings();
-  }
-
-  initUI() {
-    this.logBox = this.grid.set(0, 0, 12, 8, contrib.log, {
-      fg: 'green',
-      label: ' Transaction Logs ',
-      border: { type: "line", fg: "cyan" },
-      scrollable: true
-    });
-
-    this.statusBox = this.grid.set(0, 8, 6, 4, blessed.box, {
-      label: ' System Status ',
-      border: { type: "line", fg: "cyan" },
-      content: 'Initializing...'
-    });
-
-    this.walletBox = this.grid.set(6, 8, 6, 4, blessed.box, {
-      label: ' Wallet Info ',
-      border: { type: "line", fg: "cyan" },
-      content: 'Loading...'
-    });
-
-    this.screen.render();
-  }
-
-  setupKeybindings() {
-    this.screen.key(['escape', 'q', 'C-c'], () => process.exit(0));
-  }
-
-  updateStatus(content) {
-    this.statusBox.setContent(content);
-    this.screen.render();
-  }
-
-  updateWalletInfo(content) {
-    this.walletBox.setContent(content);
-    this.screen.render();
-  }
-}
-
 // ========== LOGGER ==========
 class Logger {
-  constructor(uiManager) {
-    this.ui = uiManager;
-  }
+  constructor() {}
 
   log(msg, color = 'white') {
-    this.ui.logBox.log(`{${color}-fg}${msg}{/${color}-fg}`);
-    this.ui.screen.render();
+    console.log(`[${color}] ${msg}`);
   }
 
   info(msg) { this.log(`[ℹ] ${msg}`, 'green'); }
@@ -113,23 +61,20 @@ class TransactionManager {
 
 // ========== BRIDGE MANAGER ==========
 class BridgeManager {
-  constructor(provider, uiManager) {
+  constructor(provider, logger) {
     this.provider = provider;
-    this.ui = uiManager;
-    this.logger = new Logger(uiManager);
+    this.logger = logger;
     this.txManager = new TransactionManager(provider, this.logger);
   }
 
   async bridgeTokens(wallet, tokenAddress, abi, amount, destination) {
     try {
-      // Update UI
-      this.ui.updateStatus(`Bridging ${ethers.formatUnits(amount, 18)} tokens to ${destination}`);
-      this.ui.updateWalletInfo(`Wallet: ${wallet.address}\nBalance: Loading...`);
+      this.logger.info(`Bridging ${ethers.formatUnits(amount, 18)} tokens to ${destination}`);
+      this.logger.info(`Wallet: ${wallet.address}`);
 
       // Check token balance
       const tokenContract = new ethers.Contract(tokenAddress, abi, wallet);
       const balance = await tokenContract.balanceOf(wallet.address);
-      this.ui.updateWalletInfo(`Wallet: ${wallet.address.slice(0, 12)}...\nBalance: ${ethers.formatUnits(balance, 18)}`);
 
       if (balance < amount) {
         throw new Error(`Insufficient balance. Needed: ${ethers.formatUnits(amount, 18)}, Have: ${ethers.formatUnits(balance, 18)}`);
@@ -200,8 +145,7 @@ class BridgeManager {
 // ========== MAIN APPLICATION ==========
 class App {
   constructor() {
-    this.ui = new UIManager();
-    this.logger = new Logger(this.ui);
+    this.logger = new Logger();
   }
 
   async init() {
@@ -213,7 +157,7 @@ class App {
       const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider); // <- REPLACE THIS
       
       // Initialize bridge manager
-      const bridgeManager = new BridgeManager(provider, this.ui);
+      const bridgeManager = new BridgeManager(provider, this.logger);
       
       // Token details (replace with your token)
       const tokenAddress = 'native'; // <- REPLACE THIS
