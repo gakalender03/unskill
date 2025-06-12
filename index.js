@@ -7,7 +7,7 @@ const CONFIG = {
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Union Bridge contract address
   GAS_LIMIT: 1000000, // Increased gas limit
-  EXPLORER_URL: 'https://sepolia.etherscan.io', // Replace with Sei/Corn explorer if available
+  EXPLORER_URL: 'https://seitrace.com', // Replace with Sei/Corn explorer if available
 };
 
 // ========== UTILITIES ==========
@@ -180,7 +180,7 @@ class App {
       const bridgeManager = new BridgeManager(provider, this.logger);
       
       // Set amount to bridge (0.0001 SEI)
-      const amount = ethers.parseUnits('0.0000001', 18); // 0.0001 SEI
+      const amount = ethers.parseUnits('0.000001', 18); // 0.0001 SEI
       
       // Execute bridge to Corn testnet
       await bridgeManager.bridgeTokens(wallet, amount, 'corn');
