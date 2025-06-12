@@ -63,12 +63,55 @@ class TransactionManager {
         ...options
       });
 
-      // Wait for the transaction to be confirmed
+      // Wait for transaction confirmation
       const receipt = await tx.wait();
-      return { success: true, receipt, nonce };
+      return { 
+        success: true, 
+        receipt,
+        txHash: tx.hash,
+        nonce 
+      };
     } catch (error) {
-      return { success: false, error, nonce };
+      return { 
+        success: false, 
+        error, 
+        nonce 
+      };
     }
+  }
+}
+
+// ========== NONCE MANAGER ==========
+class NonceManager {
+  constructor(wallet) {
+    this.wallet = wallet;
+    this.currentNonce = null;
+    this.lock = false;
+  }
+
+  async getNextNonce() {
+    // Wait if another operation is in progress
+    while (this.lock) {
+      await Utils.delay(100);
+    }
+
+    this.lock = true;
+    try {
+      if (this.currentNonce === null) {
+        // First time - get the current nonce from the network
+        this.currentNonce = await this.wallet.getNonce();
+      } else {
+        // Increment the nonce
+        this.currentNonce++;
+      }
+      return this.currentNonce;
+    } finally {
+      this.lock = false;
+    }
+  }
+
+  async resetNonce() {
+    this.currentNonce = await this.wallet.getNonce();
   }
 }
 
@@ -77,6 +120,7 @@ class BridgeManager {
   constructor() {
     this.completedTx = 0;
     this.failedTx = 0;
+    this.pendingTx = 0;
   }
 
   async bridgeTokens(wallet, nonceManager, amount, txCount) {
@@ -115,6 +159,7 @@ class BridgeManager {
         instruction
       ]);
 
+      this.pendingTx++;
       const result = await TransactionManager.sendTransaction(
         wallet,
         CONFIG.CONTRACT_ADDRESS,
@@ -123,11 +168,12 @@ class BridgeManager {
         gasPrice,
         { data }
       );
+      this.pendingTx--;
 
       if (result.success) {
         this.completedTx++;
-        Logger.success(`Tx ${nonce} confirmed in block ${result.receipt.blockNumber} | Status: ${result.receipt.status === 1 ? 'Success' : 'Failed'}`);
-        Logger.success(`Tx ${nonce} hash: ${CONFIG.EXPLORER_URL}/tx/${result.receipt.hash}`);
+        Logger.success(`Tx ${nonce} confirmed in block ${result.receipt.blockNumber}`);
+        Logger.success(`Tx hash: ${CONFIG.EXPLORER_URL}/tx/${result.txHash}`);
       } else {
         this.failedTx++;
         Logger.error(`Tx ${nonce} failed: ${result.error.message}`);
@@ -147,12 +193,16 @@ class BridgeManager {
   }
 
   async processBatch(wallet, nonceManager, batchSize, amount, startTxCount) {
-    const promises = [];
+    Logger.info(`Starting batch of ${batchSize} transactions...`);
+    const results = [];
+    
     for (let i = 0; i < batchSize; i++) {
-      promises.push(this.bridgeTokens(wallet, nonceManager, amount, startTxCount + i));
+      const result = await this.bridgeTokens(wallet, nonceManager, amount, startTxCount + i);
+      results.push(result);
     }
-    // Wait for all transactions in the batch to confirm
-    return Promise.all(promises);
+    
+    Logger.info(`Batch completed (${batchSize} tx)`);
+    return results;
   }
 }
 
@@ -176,7 +226,7 @@ class BridgeManager {
       
       const currentBatchSize = Math.min(CONFIG.BATCH_SIZE, remainingTx);
       
-      Logger.info(`\nBatch ${batch}/${totalBatches} (${currentBatchSize} tx)`);
+      Logger.info(`\nProcessing batch ${batch}/${totalBatches} (${currentBatchSize} tx)`);
       await bridgeManager.processBatch(wallet, nonceManager, currentBatchSize, amount, totalTxCount);
       totalTxCount += currentBatchSize;
       
@@ -184,15 +234,17 @@ class BridgeManager {
       Logger.info(`Progress: ${progress}% | Success: ${bridgeManager.completedTx} | Failed: ${bridgeManager.failedTx}`);
       
       if (batch < totalBatches) {
+        Logger.info(`Waiting ${CONFIG.DELAY_BETWEEN_BATCHES}ms before next batch...`);
         await Utils.delay(CONFIG.DELAY_BETWEEN_BATCHES);
       }
     }
     
-    Logger.success(`\nCompleted: ${bridgeManager.completedTx} | Failed: ${bridgeManager.failedTx}`);
+    Logger.success(`\nBridge process completed!`);
+    Logger.success(`Total transactions: ${CONFIG.TOTAL_TX}`);
+    Logger.success(`Successful: ${bridgeManager.completedTx}`);
+    Logger.success(`Failed: ${bridgeManager.failedTx}`);
   } catch (error) {
     Logger.error(`Fatal error: ${error.message}`);
     process.exit(1);
   }
 })();
-
-  
