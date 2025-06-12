@@ -200,7 +200,7 @@ class BridgeManager {
 // ========== MAIN EXECUTION ==========
 async function main() {
   // Initialize wallet, nonceManager, and bridgeManager
-  const wallet = new ethers.Wallet('your_private_key', new ethers.JsonRpcProvider(CONFIG.SEI_RPC));
+  const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', new ethers.JsonRpcProvider(CONFIG.SEI_RPC));
   const nonceManager = new NonceManager(wallet);
   const bridgeManager = new BridgeManager();
 
