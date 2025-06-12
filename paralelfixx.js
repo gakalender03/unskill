@@ -45,34 +45,35 @@ class Utils {
 
   // Generate ABI-encoded data with signer's address
   static generateABIEncodedData(signerAddress) {
-    return ethers.utils.defaultAbiCoder.encode(
+  return ethers.AbiCoder.defaultAbiCoder().encode(
+    [
+      "tuple(uint256,uint256,tuple(uint256,uint256,uint256,uint256,uint256,uint256,uint256),address[],string[],string,address)",
+    ],
+    [
       [
-        "tuple(uint256,uint256,tuple(uint256,uint256,uint256,uint256,uint256,uint256,uint256),address[],string[],string,address)",
-      ],
-      [
+        1, // uint256 param 1
+        3, // uint256 param 2
         [
-          0, // uint256 param 1
-          2, // uint256 param 2
-          [
-            ethers.BigNumber.from("1000000000000"), // 1e12
-            2,
-            36,
-            18,
-            0,
-            40,
-            ethers.BigNumber.from("1000000000000"), // 1e12
-          ],
-          [
-            signerAddress, // Replaces hardcoded address
-            signerAddress, // Replaces hardcoded address
-            "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // WETH address
-          ],
-          ["SEI", "Sei"], // string[]
-          "0xe86bed5b0813430df660d17363b89fe9bd8232d8", // Another address
+          ethers.BigInt("1000000000000"), // 1e12
+          2,
+          36,
+          18,
+          0,
+          40,
+          ethers.BigInt("1000000000000"), // 1e12
         ],
-      ]
-    );
-  }
+        [
+          signerAddress, // Replaces hardcoded address
+          signerAddress, // Replaces hardcoded address
+          "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", // WETH address
+        ],
+        ["SEI", "Sei"], // string[]
+        "0xe86bed5b0813430df660d17363b89fe9bd8232d8", // Another address
+      ],
+    ]
+  );
+}
+
 }
 
 // ========== SIMPLIFIED LOGGER ==========
