@@ -10,7 +10,7 @@ const CONFIG = {
   GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'), // 0.00001 Gwei increment per tx
   MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Max gas price cap in Gwei
   EXPLORER_URL: 'https://seitrace.com',
-  BATCH_SIZE: 1,
+  BATCH_SIZE: 10,
   TOTAL_TX: 1000,
   DELAY_BETWEEN_BATCHES: 1000,
   AMOUNT_TO_BRIDGE: '0.000001',
@@ -144,6 +144,10 @@ class BridgeManager {
       // Inject wallet address dynamically into instruction
       const walletAddress = wallet.address.toLowerCase(); // Ensure the wallet address is in lowercase
       const paddedAddress = ethers.utils.hexZeroPad(walletAddress, 32); // Pad address to 32 bytes
+
+      if (!walletAddress) {
+        throw new Error("Wallet address is undefined.");
+      }
 
       const instruction = [
         0,
