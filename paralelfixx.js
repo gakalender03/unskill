@@ -6,9 +6,9 @@ const CONFIG = {
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,
-  BASE_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Increased base gas price
+  BASE_GAS_PRICE: ethers.parseUnits('1.2', 'gwei'), // Increased base gas price
   GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'),
-  MAX_GAS_PRICE: ethers.parseUnits('5', 'gwei'), // Increased max gas price
+  MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Increased max gas price
   EXPLORER_URL: 'https://seitrace.com',
   BATCH_SIZE: 10,
   TOTAL_TX: 1000,
