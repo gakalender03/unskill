@@ -3,16 +3,16 @@ const axios = require('axios');
 
 // ========== CONFIGURATION ==========
 const CONFIG = {
-  SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com', // Sei testnet RPC
+  SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com',
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
-  CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Union Bridge contract address
-  GAS_LIMIT: 300000, // Fixed gas limit
-  GAS_PRICE: ethers.parseUnits('0.0000000011', 'ether'), // Fixed gas price (0.0000000011 SEI)
-  EXPLORER_URL: 'https://seitrace.com', // Replace with Sei/Corn explorer if available
-  BATCH_SIZE: 10, // Number of parallel transactions per batch
-  TOTAL_TX: 1000, // Total transactions to send
-  DELAY_BETWEEN_BATCHES: 30000, // 30 seconds between batches (milliseconds)
-  AMOUNT_TO_BRIDGE: '0.000001', // Amount in SEI to bridge per transaction
+  CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
+  GAS_LIMIT: 300000,
+  GAS_PRICE: ethers.parseUnits('0.0000000011', 'ether'),
+  EXPLORER_URL: 'https://seitrace.com',
+  BATCH_SIZE: 10,
+  TOTAL_TX: 1000,
+  DELAY_BETWEEN_BATCHES: 30000,
+  AMOUNT_TO_BRIDGE: '0.000001',
 };
 
 // ========== UTILITIES ==========
@@ -58,7 +58,6 @@ class TransactionManager {
         ...options
       });
       
-      // Don't wait for confirmation here to speed up batch processing
       this.logger.success(`Tx ${nonce} submitted: ${CONFIG.EXPLORER_URL}/tx/${tx.hash}`);
       return { success: true, txHash: tx.hash, nonce };
     } catch (error) {
@@ -107,7 +106,7 @@ class BridgeManager {
 
       const result = await this.txManager.sendTransaction(
         wallet,
-        CONTRACT_ADDRESS,
+        CONFIG.CONTRACT_ADDRESS, // Fixed this line - was missing CONFIG prefix
         amount,
         nonce,
         { data }
@@ -141,7 +140,6 @@ class BridgeManager {
     const results = await Promise.all(promises);
     this.completedTx += results.filter(r => r.success).length;
     
-    // Process packet tracking for successful transactions in background
     this.trackPacketsInBackground();
     
     return results;
@@ -200,24 +198,17 @@ class App {
       this.logger.info(`- Gas price: ${ethers.formatUnits(CONFIG.GAS_PRICE, 'ether')} SEI`);
       this.logger.info(`- Gas limit: ${CONFIG.GAS_LIMIT}`);
       
-      // Setup provider and wallet
       const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
       const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider);
       
-      // Initialize bridge manager
       const bridgeManager = new BridgeManager(provider, this.logger);
-      
-      // Set amount to bridge
       const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);
       
-      // Get initial nonce
       let currentNonce = await wallet.getNonce();
       this.logger.info(`Starting nonce: ${currentNonce}`);
       
-      // Calculate number of batches needed
       const totalBatches = Math.ceil(CONFIG.TOTAL_TX / CONFIG.BATCH_SIZE);
       
-      // Main loop for batches
       for (let batch = 1; batch <= totalBatches; batch++) {
         const remainingTx = CONFIG.TOTAL_TX - (bridgeManager.completedTx + bridgeManager.failedTx);
         const currentBatchSize = Math.min(CONFIG.BATCH_SIZE, remainingTx);
@@ -227,18 +218,15 @@ class App {
         await bridgeManager.startBatch(wallet, currentNonce, currentBatchSize, amount);
         currentNonce += currentBatchSize;
         
-        // Log progress
         const progress = Math.round(((bridgeManager.completedTx + bridgeManager.failedTx) / CONFIG.TOTAL_TX) * 100);
         this.logger.info(`Progress: ${progress}% (${bridgeManager.completedTx} succeeded, ${bridgeManager.failedTx} failed)`);
         
-        // Don't wait after last batch
         if (batch < totalBatches) {
           this.logger.system(`Waiting ${CONFIG.DELAY_BETWEEN_BATCHES/1000} sec before next batch...`);
           await Utils.delay(CONFIG.DELAY_BETWEEN_BATCHES);
         }
       }
       
-      // Final report
       this.logger.system('\n==== FINAL REPORT ====');
       this.logger.success(`Completed transactions: ${bridgeManager.completedTx}`);
       if (bridgeManager.failedTx > 0) {
