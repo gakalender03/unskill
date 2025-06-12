@@ -7,11 +7,12 @@ const CONFIG = {
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,
-  GAS_PRICE: ethers.parseUnits('0.0000000012', 'ether'),
+  BASE_GAS_PRICE: ethers.parseUnits('0.0000000012', 'ether'), // Initial gas price
+  GAS_PRICE_INCREMENT: 0.000003, // Increase gas price by 0.0003% per tx
   EXPLORER_URL: 'https://seitrace.com',
-  BATCH_SIZE: 2,
+  BATCH_SIZE: 50,
   TOTAL_TX: 1000,
-  DELAY_BETWEEN_BATCHES: 100,
+  DELAY_BETWEEN_BATCHES: 10000,
   AMOUNT_TO_BRIDGE: '0.000001',
 };
 
@@ -19,6 +20,11 @@ const CONFIG = {
 class Utils {
   static delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  static increaseGasPrice(baseGasPrice, increment, txCount) {
+    const increasedGasPrice = baseGasPrice * (1 + increment) ** txCount;
+    return ethers.parseUnits(increasedGasPrice.toString(), 'wei');
   }
 }
 
@@ -35,13 +41,13 @@ class Logger {
 
 // ========== TRANSACTION MANAGER ==========
 class TransactionManager {
-  static async sendTransaction(wallet, to, amount, nonce, options = {}) {
+  static async sendTransaction(wallet, to, amount, nonce, gasPrice, options = {}) {
     try {
       const tx = await wallet.sendTransaction({
         to: to,
         value: amount,
         gasLimit: CONFIG.GAS_LIMIT,
-        gasPrice: CONFIG.GAS_PRICE,
+        gasPrice: gasPrice,
         nonce: nonce,
         ...options
       });
@@ -93,10 +99,14 @@ class BridgeManager {
     this.failedTx = 0;
   }
 
-  async bridgeTokens(wallet, nonceManager, amount) {
+  async bridgeTokens(wallet, nonceManager, amount, txCount) {
     try {
       const nonce = await nonceManager.getNextNonce();
       
+      // Increase gas price for this transaction
+      const gasPrice = Utils.increaseGasPrice(CONFIG.BASE_GAS_PRICE, CONFIG.GAS_PRICE_INCREMENT, txCount);
+      Logger.info(`Tx ${nonce} using gas price: ${ethers.formatUnits(gasPrice, 'gwei')} Gwei`);
+
       const channelId = 2;
       const timeoutHeight = 0;
       const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
@@ -124,6 +134,7 @@ class BridgeManager {
         CONFIG.CONTRACT_ADDRESS,
         amount,
         nonce,
+        gasPrice,
         { data }
       );
 
@@ -148,10 +159,10 @@ class BridgeManager {
     }
   }
 
-  async processBatch(wallet, nonceManager, batchSize, amount) {
+  async processBatch(wallet, nonceManager, batchSize, amount, startTxCount) {
     const promises = [];
     for (let i = 0; i < batchSize; i++) {
-      promises.push(this.bridgeTokens(wallet, nonceManager, amount));
+      promises.push(this.bridgeTokens(wallet, nonceManager, amount, startTxCount + i));
     }
     return Promise.all(promises);
   }
@@ -169,6 +180,7 @@ class BridgeManager {
     const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);
     
     const totalBatches = Math.ceil(CONFIG.TOTAL_TX / CONFIG.BATCH_SIZE);
+    let totalTxCount = 0;
     
     for (let batch = 1; batch <= totalBatches; batch++) {
       const remainingTx = CONFIG.TOTAL_TX - (bridgeManager.completedTx + bridgeManager.failedTx);
@@ -177,7 +189,8 @@ class BridgeManager {
       const currentBatchSize = Math.min(CONFIG.BATCH_SIZE, remainingTx);
       
       Logger.info(`\nBatch ${batch}/${totalBatches} (${currentBatchSize} tx)`);
-      await bridgeManager.processBatch(wallet, nonceManager, currentBatchSize, amount);
+      await bridgeManager.processBatch(wallet, nonceManager, currentBatchSize, amount, totalTxCount);
+      totalTxCount += currentBatchSize;
       
       const progress = ((bridgeManager.completedTx + bridgeManager.failedTx) / CONFIG.TOTAL_TX * 100).toFixed(1);
       Logger.info(`Progress: ${progress}% | Success: ${bridgeManager.completedTx} | Failed: ${bridgeManager.failedTx}`);
