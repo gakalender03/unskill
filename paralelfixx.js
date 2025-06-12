@@ -1,19 +1,19 @@
-const { ethers } = require('ethers');
+const { ethers } = require('ethers'); 
 
 // ========== CONFIGURATION ==========
 const CONFIG = {
   SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com',
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
-  GAS_LIMIT: 300000,
-  BASE_GAS_PRICE: ethers.parseUnits('1.2', 'gwei'),
+  GAS_LIMIT: 500000, // Increased gas limit for testing
+  BASE_GAS_PRICE: ethers.parseUnits('1.1', 'gwei'), // Increased base gas price
   GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'),
-  MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'),
+  MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Increased max gas price
   EXPLORER_URL: 'https://seitrace.com',
   BATCH_SIZE: 1,
-  TOTAL_TX: 1000,
-  DELAY_BETWEEN_BATCHES: 10000,
-  AMOUNT_TO_BRIDGE: '0.000001',
+  TOTAL_TX: 10,
+  DELAY_BETWEEN_BATCHES: 1000,
+  AMOUNT_TO_BRIDGE: '0.0001', // Smaller amount for testing
 };
 
 // ========== UTILITIES ==========
@@ -26,23 +26,18 @@ class Utils {
     baseGasPrice = BigInt(baseGasPrice);
     increment = BigInt(increment);
     let increasedGasPrice = baseGasPrice + (increment * BigInt(txCount));
-    return increasedGasPrice > BigInt(CONFIG.MAX_GAS_PRICE) ? 
+    return increasedGasPrice > BigInt(CONFIG.MAX_GAS_PRICE) ?
       BigInt(CONFIG.MAX_GAS_PRICE) : increasedGasPrice;
   }
 
-  // Generate the instruction with dynamic wallet address
   static generateInstruction(walletAddress) {
-    // Static hex data with placeholder for wallet address
     const baseHex = "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000e8d4a510000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000035345490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353656900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000";
-    
-    // Current wallet address with hex prefix removed (40 chars)
+
     const currentAddress = walletAddress.toLowerCase().replace('0x', '');
-    
-    // Replace the hardcoded address (both occurrences) with current wallet address
     const hardcodedAddress = 'a8068e71a3f46c888c39ea5deba318c16393573b';
     let modifiedHex = baseHex;
     modifiedHex = modifiedHex.replace(new RegExp(hardcodedAddress, 'g'), currentAddress);
-    
+
     return [0, 2, "0x" + modifiedHex];
   }
 }
@@ -69,17 +64,17 @@ class TransactionManager {
       });
 
       const receipt = await tx.wait();
-      return { 
-        success: true, 
+      return {
+        success: true,
         receipt,
         txHash: tx.hash,
-        nonce 
+        nonce
       };
     } catch (error) {
-      return { 
-        success: false, 
-        error, 
-        nonce 
+      return {
+        success: false,
+        error,
+        nonce
       };
     }
   }
@@ -124,41 +119,32 @@ class BridgeManager {
     try {
       const nonce = await nonceManager.getNextNonce();
       const gasPrice = Utils.increaseGasPrice(
-        CONFIG.BASE_GAS_PRICE, 
-        CONFIG.GAS_PRICE_INCREMENT, 
+        CONFIG.BASE_GAS_PRICE,
+        CONFIG.GAS_PRICE_INCREMENT,
         txCount
       );
-      
+
       const gasPriceGwei = ethers.formatUnits(gasPrice, 'gwei');
       Logger.info(`Tx ${nonce} using gas price: ${parseFloat(gasPriceGwei).toFixed(5)} Gwei`);
-      
+      Logger.info(`Tx ${nonce} using gas limit: ${CONFIG.GAS_LIMIT}`);
+
       const channelId = 2;
       const timeoutHeight = 0;
       const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
       const salt = ethers.hexlify(ethers.randomBytes(32));
-      
-      // Generate instruction with current wallet address
+
       const instruction = Utils.generateInstruction(wallet.address);
 
       const iface = new ethers.Interface([
         "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
       ]);
-      
+
       const data = iface.encodeFunctionData("send", [
-        channelId,
-        timeoutHeight,
-        timeoutTimestamp,
-        salt,
-        instruction
+        channelId, timeoutHeight, timeoutTimestamp, salt, instruction
       ]);
 
       const result = await TransactionManager.sendTransaction(
-        wallet,
-        CONFIG.CONTRACT_ADDRESS,
-        amount,
-        nonce,
-        gasPrice,
-        { data }
+        wallet, CONFIG.CONTRACT_ADDRESS, amount, nonce, gasPrice, { data }
       );
 
       if (result.success) {
@@ -188,45 +174,46 @@ class BridgeManager {
     for (let i = 0; i < batchSize; i++) {
       promises.push(this.bridgeTokens(wallet, nonceManager, amount, startTxCount + i));
     }
-    const results = await Promise.all(promises);
-    Logger.info(`Batch completed (${batchSize} tx)`);
-    return results;
+
+    await Promise.all(promises);
   }
 }
 
-// ========== MAIN APPLICATION ==========
+// ========== MAIN EXECUTION ==========
 (async () => {
   try {
     Logger.info(`Starting bridge bot (${CONFIG.TOTAL_TX} tx target)`);
-    
+
+    // Create wallet and provider
     const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
-    const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider);
+    const wallet = new ethers.Wallet('YOUR_PRIVATE_KEY', provider); // Replace with your private key
     const nonceManager = new NonceManager(wallet);
     const bridgeManager = new BridgeManager();
+
+    // Test with a small amount
     const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);
-    
+
     const totalBatches = Math.ceil(CONFIG.TOTAL_TX / CONFIG.BATCH_SIZE);
     let totalTxCount = 0;
-    
+
     for (let batch = 1; batch <= totalBatches; batch++) {
       const remainingTx = CONFIG.TOTAL_TX - (bridgeManager.completedTx + bridgeManager.failedTx);
       if (remainingTx <= 0) break;
-      
+
       const currentBatchSize = Math.min(CONFIG.BATCH_SIZE, remainingTx);
-      
       Logger.info(`\nProcessing batch ${batch}/${totalBatches} (${currentBatchSize} tx)`);
       await bridgeManager.processBatch(wallet, nonceManager, currentBatchSize, amount, totalTxCount);
       totalTxCount += currentBatchSize;
-      
+
       const progress = ((bridgeManager.completedTx + bridgeManager.failedTx) / CONFIG.TOTAL_TX * 100).toFixed(1);
       Logger.info(`Progress: ${progress}% | Success: ${bridgeManager.completedTx} | Failed: ${bridgeManager.failedTx}`);
-      
+
       if (batch < totalBatches) {
         Logger.info(`Waiting ${CONFIG.DELAY_BETWEEN_BATCHES}ms before next batch...`);
         await Utils.delay(CONFIG.DELAY_BETWEEN_BATCHES);
       }
     }
-    
+
     Logger.success(`\nBridge process completed!`);
     Logger.success(`Total transactions: ${CONFIG.TOTAL_TX}`);
     Logger.success(`Successful: ${bridgeManager.completedTx}`);
