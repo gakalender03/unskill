@@ -51,8 +51,8 @@ class Utils {
       ],
       [
         [
-          1, // uint256 param 1
-          3, // uint256 param 2
+          0, // uint256 param 1
+          2, // uint256 param 2
           [
             ethers.BigNumber.from("1000000000000"), // 1e12
             2,
