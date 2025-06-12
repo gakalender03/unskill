@@ -23,8 +23,11 @@ class Utils {
   }
 
   static increaseGasPrice(baseGasPrice, increment, txCount) {
-    const increasedGasPrice = baseGasPrice * (1 + increment) ** txCount;
-    return ethers.parseUnits(increasedGasPrice.toString(), 'wei');
+    // Convert increment to a BigInt-friendly format
+    const incrementFactor = BigInt(Math.round((1 + increment) ** txCount * 1e6)); // Scale to avoid floating-point issues
+    const scaledBaseGasPrice = baseGasPrice * BigInt(1e6); // Scale baseGasPrice to match
+    const increasedGasPrice = (scaledBaseGasPrice * incrementFactor) / BigInt(1e6); // Apply increment and rescale
+    return increasedGasPrice;
   }
 }
 
