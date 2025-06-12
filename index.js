@@ -6,7 +6,7 @@ const CONFIG = {
   SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com', // Sei testnet RPC
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Union Bridge contract address
-  GAS_LIMIT: 500000,
+  GAS_LIMIT: 1000000, // Increased gas limit
   EXPLORER_URL: 'https://sepolia.etherscan.io', // Replace with Sei/Corn explorer if available
 };
 
@@ -43,10 +43,18 @@ class TransactionManager {
 
   async sendTransaction(wallet, to, amount, options = {}) {
     try {
+      // Estimate gas
+      const gasLimit = await wallet.estimateGas({
+        to: to,
+        value: amount,
+        ...options
+      });
+      this.logger.info(`Estimated gas: ${gasLimit}`);
+
       const tx = await wallet.sendTransaction({
         to: to,
         value: amount,
-        gasLimit: CONFIG.GAS_LIMIT,
+        gasLimit: gasLimit, // Use estimated gas
         ...options
       });
       const receipt = await tx.wait();
@@ -71,8 +79,28 @@ class BridgeManager {
       this.logger.info(`Bridging ${ethers.formatUnits(amount, 18)} SEI to ${destination}`);
       this.logger.info(`Wallet: ${wallet.address}`);
 
-      // Prepare additional data for the bridge transaction (destination)
-      const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(['string'], [destination]);
+      // Prepare parameters for the `send` function
+      const channelId = 1; // Replace with the correct channel ID
+      const timeoutHeight = 0; // Replace with the correct timeout height
+      const timeoutTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
+      const salt = ethers.hexlify(ethers.randomBytes(32)); // Random salt
+      const instruction = {
+        instructionType: 1, // Replace with the correct instruction type
+        instructionVersion: 1, // Replace with the correct instruction version
+        instructionData: ethers.toUtf8Bytes(destination), // Destination as bytes
+      };
+
+      // Encode the `send` function parameters
+      const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(
+        ['uint32', 'uint64', 'uint64', 'bytes32', 'tuple(uint8,uint8,bytes)'],
+        [channelId, timeoutHeight, timeoutTimestamp, salt, instruction]
+      );
+
+      // Add the function selector for `send`
+      const functionSelector = ethers.id('send(uint32,uint64,uint64,bytes32,(uint8,uint8,bytes))').slice(0, 10);
+      const data = functionSelector + encodedData.slice(2);
+
+      this.logger.info(`Encoded data: ${data}`);
 
       // Execute bridge (sending native SEI)
       this.logger.loading("Executing bridge transaction...");
@@ -80,7 +108,7 @@ class BridgeManager {
         wallet,
         CONFIG.CONTRACT_ADDRESS,
         amount,
-        { data: encodedData } // Send destination network as additional data
+        { data } // Send encoded data
       );
 
       if (bridgeTx.success) {
