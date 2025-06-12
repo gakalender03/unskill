@@ -72,7 +72,7 @@ class BridgeManager {
       this.logger.info(`Wallet: ${wallet.address}`);
 
       // Prepare additional data for the bridge transaction (destination)
-      const encodedData = ethers.utils.defaultAbiCoder.encode(['string'], [destination]);
+      const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(['string'], [destination]);
 
       // Execute bridge (sending native SEI)
       this.logger.loading("Executing bridge transaction...");
