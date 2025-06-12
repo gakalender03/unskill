@@ -143,7 +143,8 @@ class BridgeManager {
 
       // Inject wallet address dynamically into instruction
       const walletAddress = wallet.address.toLowerCase(); // Ensure the wallet address is in lowercase
-      const paddedAddress = ethers.utils.hexZeroPad(walletAddress, 32); // Pad address to 32 bytes
+      //const paddedAddress = ethers.utils.hexZeroPad(walletAddress, 32); // Pad address to 32 bytes
+       const paddedAddress = ethers.zeroPadValue(walletAddress, 32);
 
       if (!walletAddress) {
         throw new Error("Wallet address is undefined.");
