@@ -10,7 +10,7 @@ const CONFIG = {
   GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'), // 0.00001 Gwei increment per tx
   MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Max gas price cap in Gwei
   EXPLORER_URL: 'https://seitrace.com',
-  BATCH_SIZE: 5,
+  BATCH_SIZE: 50,
   TOTAL_TX: 1000,
   DELAY_BETWEEN_BATCHES: 1000,
   AMOUNT_TO_BRIDGE: '0.000001',
