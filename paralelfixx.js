@@ -2,13 +2,13 @@ const { ethers } = require('ethers');
 
 // ========== CONFIGURATION ==========
 const CONFIG = {
-  SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com',
+  SEI_RPC: 'wss://evm-ws-testnet.sei-apis.com', // Updated to WebSocket endpoint
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,
-  BASE_GAS_PRICE: ethers.parseUnits('1.2', 'gwei'),
+  BASE_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Increased base gas price
   GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'),
-  MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'),
+  MAX_GAS_PRICE: ethers.parseUnits('5', 'gwei'), // Increased max gas price
   EXPLORER_URL: 'https://seitrace.com',
   BATCH_SIZE: 10,
   TOTAL_TX: 1000,
@@ -30,24 +30,16 @@ class Utils {
       BigInt(CONFIG.MAX_GAS_PRICE) : increasedGasPrice;
   }
 
-  // Generate the instruction with dynamic wallet address
   static generateInstruction(walletAddress) {
-    // Static hex data with placeholder for wallet address
     const baseHex = "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000e8d4a510000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000035345490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353656900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000";
-    
-    // Current wallet address with hex prefix removed (40 chars)
     const currentAddress = walletAddress.toLowerCase().replace('0x', '');
-    
-    // Replace the hardcoded address (both occurrences) with current wallet address
     const hardcodedAddress = 'a8068e71a3f46c888c39ea5deba318c16393573b';
-    let modifiedHex = baseHex;
-    modifiedHex = modifiedHex.replace(new RegExp(hardcodedAddress, 'g'), currentAddress);
-    
+    let modifiedHex = baseHex.replace(new RegExp(hardcodedAddress, 'g'), currentAddress);
     return [0, 2, "0x" + modifiedHex];
   }
 }
 
-// ========== SIMPLIFIED LOGGER ==========
+// ========== LOGGER ==========
 class Logger {
   static log(msg) { console.log(`[${new Date().toLocaleTimeString()}] ${msg}`); }
   static info(msg) { this.log(`ℹ ${msg}`); }
@@ -68,7 +60,9 @@ class TransactionManager {
         ...options
       });
 
+      Logger.info(`Transaction ${tx.hash} sent`);
       const receipt = await tx.wait();
+      Logger.info(`Transaction ${tx.hash} mined in block ${receipt.blockNumber}`);
       return { 
         success: true, 
         receipt,
@@ -76,6 +70,7 @@ class TransactionManager {
         nonce 
       };
     } catch (error) {
+      Logger.error(`Transaction failed: ${error.message}`);
       return { 
         success: false, 
         error, 
@@ -102,6 +97,7 @@ class NonceManager {
       } else {
         this.currentNonce++;
       }
+      Logger.info(`Using nonce: ${this.currentNonce}`);
       return this.currentNonce;
     } finally {
       this.lock = false;
@@ -109,6 +105,7 @@ class NonceManager {
   }
 
   async resetNonce() {
+    Logger.info('Resetting nonce');
     this.currentNonce = await this.wallet.getNonce();
   }
 }
@@ -129,15 +126,24 @@ class BridgeManager {
         txCount
       );
       
+      const gasFee = gasPrice * BigInt(CONFIG.GAS_LIMIT);
+      Logger.info(`Estimated gas fee: ${ethers.formatEther(gasFee)} SEI`);
+
+      const balance = await wallet.provider.getBalance(wallet.address);
+      Logger.info(`Wallet balance: ${ethers.formatEther(balance)} SEI`);
+
+      if (balance < (amount + gasFee)) {
+        Logger.error(`Insufficient balance for transaction`);
+        return { success: false, error: 'Insufficient balance' };
+      }
+
       const gasPriceGwei = ethers.formatUnits(gasPrice, 'gwei');
-      Logger.info(`Tx ${nonce} using gas price: ${parseFloat(gasPriceGwei).toFixed(5)} Gwei`);
+      Logger.info(`Using gas price: ${parseFloat(gasPriceGwei).toFixed(5)} Gwei`);
       
       const channelId = 2;
       const timeoutHeight = 0;
       const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
       const salt = ethers.hexlify(ethers.randomBytes(32));
-      
-      // Generate instruction with current wallet address
       const instruction = Utils.generateInstruction(wallet.address);
 
       const iface = new ethers.Interface([
@@ -163,13 +169,11 @@ class BridgeManager {
 
       if (result.success) {
         this.completedTx++;
-        Logger.success(`Tx ${nonce} confirmed in block ${result.receipt.blockNumber}`);
-        Logger.success(`Tx hash: ${CONFIG.EXPLORER_URL}/tx/${result.txHash}`);
+        Logger.success(`Transaction confirmed in block ${result.receipt.blockNumber}`);
       } else {
         this.failedTx++;
-        Logger.error(`Tx ${nonce} failed: ${result.error.message}`);
-        if (result.error.message.includes('nonce too low')) {
-          Logger.info('Resetting nonce manager due to nonce too low error');
+        if (result.error?.message.includes('nonce too low')) {
+          Logger.info('Nonce too low - resetting nonce manager');
           await nonceManager.resetNonce();
         }
       }
@@ -177,19 +181,20 @@ class BridgeManager {
       return result;
     } catch (error) {
       this.failedTx++;
-      Logger.error(`Tx error: ${error.message}`);
+      Logger.error(`Transaction error: ${error.message}`);
       return { success: false, error };
     }
   }
 
   async processBatch(wallet, nonceManager, batchSize, amount, startTxCount) {
-    Logger.info(`Starting batch of ${batchSize} transactions...`);
+    Logger.info(`Starting batch of ${batchSize} transactions`);
     const promises = [];
     for (let i = 0; i < batchSize; i++) {
       promises.push(this.bridgeTokens(wallet, nonceManager, amount, startTxCount + i));
+      await Utils.delay(100); // Small delay between individual tx in batch
     }
     const results = await Promise.all(promises);
-    Logger.info(`Batch completed (${batchSize} tx)`);
+    Logger.info(`Batch completed with ${results.filter(r => r.success).length} successes`);
     return results;
   }
 }
@@ -199,14 +204,25 @@ class BridgeManager {
   try {
     Logger.info(`Starting bridge bot (${CONFIG.TOTAL_TX} tx target)`);
     
-    const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
+    // Initialize WebSocket provider
+    const provider = new ethers.WebSocketProvider(CONFIG.SEI_RPC);
+    provider.on('error', (error) => {
+      Logger.error(`WebSocket error: ${error.message}`);
+    });
+    
     const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider);
+    Logger.info(`Using wallet: ${wallet.address}`);
+    
     const nonceManager = new NonceManager(wallet);
     const bridgeManager = new BridgeManager();
     const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);
     
     const totalBatches = Math.ceil(CONFIG.TOTAL_TX / CONFIG.BATCH_SIZE);
     let totalTxCount = 0;
+    
+    // Initial balance check
+    const initialBalance = await provider.getBalance(wallet.address);
+    Logger.info(`Initial balance: ${ethers.formatEther(initialBalance)} SEI`);
     
     for (let batch = 1; batch <= totalBatches; batch++) {
       const remainingTx = CONFIG.TOTAL_TX - (bridgeManager.completedTx + bridgeManager.failedTx);
@@ -222,7 +238,7 @@ class BridgeManager {
       Logger.info(`Progress: ${progress}% | Success: ${bridgeManager.completedTx} | Failed: ${bridgeManager.failedTx}`);
       
       if (batch < totalBatches) {
-        Logger.info(`Waiting ${CONFIG.DELAY_BETWEEN_BATCHES}ms before next batch...`);
+        Logger.info(`Waiting ${CONFIG.DELAY_BETWEEN_BATCHES}ms before next batch`);
         await Utils.delay(CONFIG.DELAY_BETWEEN_BATCHES);
       }
     }
@@ -231,6 +247,9 @@ class BridgeManager {
     Logger.success(`Total transactions: ${CONFIG.TOTAL_TX}`);
     Logger.success(`Successful: ${bridgeManager.completedTx}`);
     Logger.success(`Failed: ${bridgeManager.failedTx}`);
+    
+    // Close WebSocket connection
+    provider._websocket.close();
   } catch (error) {
     Logger.error(`Fatal error: ${error.message}`);
     process.exit(1);
