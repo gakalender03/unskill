@@ -7,11 +7,11 @@ const CONFIG = {
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,
-  GAS_PRICE: ethers.parseUnits('0.000000003', 'ether'),
+  GAS_PRICE: ethers.parseUnits('0.0000000012', 'ether'),
   EXPLORER_URL: 'https://seitrace.com',
-  BATCH_SIZE: 5,
+  BATCH_SIZE: 2,
   TOTAL_TX: 1000,
-  DELAY_BETWEEN_BATCHES: 1000,
+  DELAY_BETWEEN_BATCHES: 100,
   AMOUNT_TO_BRIDGE: '0.000001',
 };
 
