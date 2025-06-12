@@ -9,9 +9,9 @@ const CONFIG = {
   GAS_LIMIT: 300000,
   GAS_PRICE: ethers.parseUnits('0.0000000011', 'ether'),
   EXPLORER_URL: 'https://seitrace.com',
-  BATCH_SIZE: 50,
-  TOTAL_TX: 10000,
-  DELAY_BETWEEN_BATCHES: 1000,
+  BATCH_SIZE: 1,
+  TOTAL_TX: 1000,
+  DELAY_BETWEEN_BATCHES: 100,
   AMOUNT_TO_BRIDGE: '0.000001',
 };
 
