@@ -1,5 +1,4 @@
 const { ethers } = require('ethers');
-const axios = require('axios');
 
 // ========== CONFIGURATION ==========
 const CONFIG = {
@@ -7,8 +6,9 @@ const CONFIG = {
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,
-  BASE_GAS_PRICE: ethers.parseUnits('0.0000000012', 'ether'), // Initial gas price
-  GAS_PRICE_INCREMENT: 0.000003, // Increase gas price by 0.0003% per tx
+  BASE_GAS_PRICE: ethers.parseUnits('1.7', 'gwei'), // Base gas price in Gwei
+  GAS_PRICE_INCREMENT: ethers.parseUnits('0.00001', 'gwei'), // 0.00001 Gwei increment per tx
+  MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Max gas price cap in Gwei
   EXPLORER_URL: 'https://seitrace.com',
   BATCH_SIZE: 50,
   TOTAL_TX: 1000,
@@ -23,10 +23,18 @@ class Utils {
   }
 
   static increaseGasPrice(baseGasPrice, increment, txCount) {
-    // Convert increment to a BigInt-friendly format
-    const incrementFactor = BigInt(Math.round((1 + increment) ** txCount * 1e6)); // Scale to avoid floating-point issues
-    const scaledBaseGasPrice = baseGasPrice * BigInt(1e6); // Scale baseGasPrice to match
-    const increasedGasPrice = (scaledBaseGasPrice * incrementFactor) / BigInt(1e6); // Apply increment and rescale
+    // Ensure we're using BigInts
+    baseGasPrice = BigInt(baseGasPrice);
+    increment = BigInt(increment);
+    
+    // Calculate increased gas price
+    let increasedGasPrice = baseGasPrice + (increment * BigInt(txCount));
+    
+    // Cap at maximum gas price
+    if (increasedGasPrice > BigInt(CONFIG.MAX_GAS_PRICE)) {
+      increasedGasPrice = BigInt(CONFIG.MAX_GAS_PRICE);
+    }
+    
     return increasedGasPrice;
   }
 }
@@ -106,10 +114,16 @@ class BridgeManager {
     try {
       const nonce = await nonceManager.getNextNonce();
       
-      // Increase gas price for this transaction
-      const gasPrice = Utils.increaseGasPrice(CONFIG.BASE_GAS_PRICE, CONFIG.GAS_PRICE_INCREMENT, txCount);
-      Logger.info(`Tx ${nonce} using gas price: ${ethers.formatUnits(gasPrice, 'gwei')} Gwei`);
-
+      const gasPrice = Utils.increaseGasPrice(
+        CONFIG.BASE_GAS_PRICE, 
+        CONFIG.GAS_PRICE_INCREMENT, 
+        txCount
+      );
+      
+      // Convert to human-readable Gwei for logging
+      const gasPriceGwei = ethers.formatUnits(gasPrice, 'gwei');
+      Logger.info(`Tx ${nonce} using gas price: ${parseFloat(gasPriceGwei).toFixed(5)} Gwei`);
+      
       const channelId = 2;
       const timeoutHeight = 0;
       const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
