@@ -75,55 +75,66 @@ class BridgeManager {
   }
 
   async bridgeTokens(wallet, amount, destination) {
-    try {
-      this.logger.info(`Bridging ${ethers.formatUnits(amount, 18)} SEI to ${destination}`);
-      this.logger.info(`Wallet: ${wallet.address}`);
+  try {
+    this.logger.info(`Bridging ${ethers.formatUnits(amount, 18)} SEI to ${destination}`);
+    this.logger.info(`Wallet: ${wallet.address}`);
 
-      // Prepare parameters for the `send` function
-      const channelId = 2; // Replace with the correct channel ID
-      const timeoutHeight = 0; // Replace with the correct timeout height
-      const timeoutTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-      const salt = ethers.hexlify(ethers.randomBytes(32)); // Random salt
+    // 1. channelId type uint32 with data 2
+    const channelId = 2;
+    
+    // 2. timeoutHeight type uint64 with data 0
+    const timeoutHeight = 0;
+    
+    // 3. timeoutTimestamp type uint64 with current timestamp
+    // Convert the timestamp to nanoseconds (add 9 zeros)
+    const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
+    
+    // 4. salt type bytes32 with random data
+    const salt = ethers.hexlify(ethers.randomBytes(32));
+    
+    // 5. instruction type (uint8,uint8,bytes) with specified data
+    const instruction = [
+      0,    // instructionType (uint8)
+      2,    // instructionVersion (uint8)
+      "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000e8d4a510000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000035345490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353656900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000"
+    ];
 
-      // Encode the `instruction` tuple as an array of its components
-      const instruction = [
-        0, // instructionType (replace with the correct value)
-        2, // instructionVersion (replace with the correct value)
-        ethers.toUtf8Bytes(destination), // instructionData (destination as bytes)
-      ];
+    // Encode the function call
+    const iface = new ethers.Interface([
+      "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
+    ]);
+    
+    const data = iface.encodeFunctionData("send", [
+      channelId,
+      timeoutHeight,
+      timeoutTimestamp,
+      salt,
+      instruction
+    ]);
 
-      // Encode the `send` function parameters
-      const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(
-        ['uint32', 'uint64', 'uint64', 'bytes32', 'tuple(uint8,uint8,bytes)'],
-        [channelId, timeoutHeight, timeoutTimestamp, salt, instruction]
-      );
+    this.logger.info(`Encoded data: ${data}`);
 
-      // Add the function selector for `send`
-      const functionSelector = ethers.id('send(uint32,uint64,uint64,bytes32,(uint8,uint8,bytes))').slice(0, 10);
-      const data = functionSelector + encodedData.slice(2);
+    // Execute bridge transaction
+    this.logger.loading("Executing bridge transaction...");
+    const bridgeTx = await this.txManager.sendTransaction(
+      wallet,
+      CONFIG.CONTRACT_ADDRESS,
+      amount,
+      { data }
+    );
 
-      this.logger.info(`Encoded data: ${data}`);
-
-      // Execute bridge (sending native SEI)
-      this.logger.loading("Executing bridge transaction...");
-      const bridgeTx = await this.txManager.sendTransaction(
-        wallet,
-        CONFIG.CONTRACT_ADDRESS,
-        amount,
-        { data } // Send encoded data
-      );
-
-      if (bridgeTx.success) {
-        this.logger.success(`Bridge tx: ${CONFIG.EXPLORER_URL}/tx/${bridgeTx.receipt.hash}`);
-        await this.pollPacketHash(bridgeTx.receipt.hash);
-      } else {
-        throw new Error("Bridge transaction failed");
-      }
-    } catch (error) {
-      this.logger.error(error.message);
-      throw error;
+    if (bridgeTx.success) {
+      this.logger.success(`Bridge tx: ${CONFIG.EXPLORER_URL}/tx/${bridgeTx.receipt.hash}`);
+      await this.pollPacketHash(bridgeTx.receipt.hash);
+    } else {
+      throw new Error("Bridge transaction failed");
     }
+  } catch (error) {
+    this.logger.error(error.message);
+    throw error;
   }
+}
+
 
   async pollPacketHash(txHash, retries = 30, intervalMs = 5000) {
     for (let i = 0; i < retries; i++) {
