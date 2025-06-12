@@ -14,11 +14,6 @@ const CONFIG = {
   TOTAL_TX: 1000,
   DELAY_BETWEEN_BATCHES: 1000,
   AMOUNT_TO_BRIDGE: '0.000001',
-  PRIVATE_KEYS: [
-    "0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe", // Replace with real private keys
-    "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52",
-    // ... up to 10
-  ],
 };
 
 // ========== UTILITIES ==========
@@ -41,53 +36,6 @@ class Utils {
     }
     
     return increasedGasPrice;
-  }
-
-  // Generate unique instruction
-  static generateInstruction(signerAddress) {
-    // Generate unique parts (using timestamp and signer's address)
-    const uniqueSegment = ethers.keccak256(
-      ethers.toUtf8Bytes(`${Date.now()}${signerAddress}`)
-    ).slice(0, 42); // Take first 20 bytes as address-like data
-    
-    // Construct the instruction with unique components
-    return [
-      0, // uint8
-      2, // uint8
-      // This is the bytes field where we embed uniqueness
-      ethers.concat([
-        "0x0000000000000000000000000000000000000000000000000000000000000020",
-        "0000000000000000000000000000000000000000000000000000000000000001",
-        "0000000000000000000000000000000000000000000000000000000000000020",
-        "0000000000000000000000000000000000000000000000000000000000000001",
-        "0000000000000000000000000000000000000000000000000000000000000003",
-        "0000000000000000000000000000000000000000000000000000000000000060",
-        "00000000000000000000000000000000000000000000000000000000000002c0",
-        "0000000000000000000000000000000000000000000000000000000000000140",
-        "0000000000000000000000000000000000000000000000000000000000000180",
-        "00000000000000000000000000000000000000000000000000000000e8d4a510",
-        uniqueSegment, // Insert unique portion (replaces part of original data)
-        "0000000000000000000000000000000000000000000000000000000000000002",
-        "0000000000000000000000000000000000000000000000000000000000000240",
-        "0000000000000000000000000000000000000000000000000000000000000012",
-        "000000000000000000000000", // This is where we inject the signer
-        signerAddress.slice(2), // Insert actual signer address
-        "0000000000000000000000000000000000000000000000000000000000000028",
-        "00000000000000000000000000000000000000000000000000000000e8d4a510",
-        "000000000000000000000000", // Another injection point
-        signerAddress.slice(2), // Insert signer address again
-        "0000000000000000000000000000000000000000000000000000000000000000",
-        "0000000000000000000000000000000000000000000000000000000000000014",
-        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
-        "0000000000000000000000000000000000000000000000000000000000000000",
-        "0000000000000000000000000000000000000000000000000000000000000353",
-        "4549000000000000000000000000000000000000000000000000000000000000",
-        "0000000000000000000000000000000000000000000000000000000000000003",
-        "5365690000000000000000000000000000000000000000000000000000000000",
-        "000000000000000000000000", // Final injection point
-        signerAddress.slice(2).padEnd(40, '0') // Ensure length matches
-      ])
-    ];
   }
 }
 
@@ -174,6 +122,15 @@ class BridgeManager {
     this.failedTx = 0;
   }
 
+  // Generate the instruction array dynamically
+  static generateInstruction(walletAddress) {
+    return [
+      0,
+      2,
+      ethers.hexlify(ethers.toUtf8Bytes(`0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000e8d4a510000000000000000000000000000000000000000000000000000000000000000014${walletAddress.slice(2)}0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014${walletAddress.slice(2)}0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000035345490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353656900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000`))
+    ];
+  }
+
   async bridgeTokens(wallet, nonceManager, amount, txCount) {
     try {
       const nonce = await nonceManager.getNextNonce();
@@ -193,8 +150,8 @@ class BridgeManager {
       const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
       const salt = ethers.hexlify(ethers.randomBytes(32));
       
-      // Generate unique instruction
-      const instruction = Utils.generateInstruction(wallet.address);
+      // Generate the instruction array dynamically
+      const instruction = BridgeManager.generateInstruction(wallet.address);
 
       const iface = new ethers.Interface([
         "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
@@ -262,45 +219,37 @@ class BridgeManager {
     Logger.info(`Starting bridge bot (${CONFIG.TOTAL_TX} tx target)`);
     
     const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
+    const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider);
+    const nonceManager = new NonceManager(wallet);
+    const bridgeManager = new BridgeManager();
     const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);
     
-    // Process each private key
-    for (const privateKey of CONFIG.PRIVATE_KEYS) {
-      const wallet = new ethers.Wallet(privateKey, provider);
-      const nonceManager = new NonceManager(wallet);
-      const bridgeManager = new BridgeManager();
+    const totalBatches = Math.ceil(CONFIG.TOTAL_TX / CONFIG.BATCH_SIZE);
+    let totalTxCount = 0;
+    
+    for (let batch = 1; batch <= totalBatches; batch++) {
+      const remainingTx = CONFIG.TOTAL_TX - (bridgeManager.completedTx + bridgeManager.failedTx);
+      if (remainingTx <= 0) break;
       
-      Logger.info(`\nProcessing wallet: ${wallet.address}`);
+      const currentBatchSize = Math.min(CONFIG.BATCH_SIZE, remainingTx);
       
-      const totalBatches = Math.ceil(CONFIG.TOTAL_TX / CONFIG.BATCH_SIZE);
-      let totalTxCount = 0;
+      Logger.info(`\nProcessing batch ${batch}/${totalBatches} (${currentBatchSize} tx)`);
+      await bridgeManager.processBatch(wallet, nonceManager, currentBatchSize, amount, totalTxCount);
+      totalTxCount += currentBatchSize;
       
-      for (let batch = 1; batch <= totalBatches; batch++) {
-        const remainingTx = CONFIG.TOTAL_TX - (bridgeManager.completedTx + bridgeManager.failedTx);
-        if (remainingTx <= 0) break;
-        
-        const currentBatchSize = Math.min(CONFIG.BATCH_SIZE, remainingTx);
-        
-        Logger.info(`Processing batch ${batch}/${totalBatches} (${currentBatchSize} tx)`);
-        await bridgeManager.processBatch(wallet, nonceManager, currentBatchSize, amount, totalTxCount);
-        totalTxCount += currentBatchSize;
-        
-        const progress = ((bridgeManager.completedTx + bridgeManager.failedTx) / CONFIG.TOTAL_TX * 100).toFixed(1);
-        Logger.info(`Progress: ${progress}% | Success: ${bridgeManager.completedTx} | Failed: ${bridgeManager.failedTx}`);
-        
-        if (batch < totalBatches) {
-          Logger.info(`Waiting ${CONFIG.DELAY_BETWEEN_BATCHES}ms before next batch...`);
-          await Utils.delay(CONFIG.DELAY_BETWEEN_BATCHES);
-        }
+      const progress = ((bridgeManager.completedTx + bridgeManager.failedTx) / CONFIG.TOTAL_TX * 100).toFixed(1);
+      Logger.info(`Progress: ${progress}% | Success: ${bridgeManager.completedTx} | Failed: ${bridgeManager.failedTx}`);
+      
+      if (batch < totalBatches) {
+        Logger.info(`Waiting ${CONFIG.DELAY_BETWEEN_BATCHES}ms before next batch...`);
+        await Utils.delay(CONFIG.DELAY_BETWEEN_BATCHES);
       }
-      
-      Logger.success(`\nBridge process completed for wallet: ${wallet.address}`);
-      Logger.success(`Total transactions: ${CONFIG.TOTAL_TX}`);
-      Logger.success(`Successful: ${bridgeManager.completedTx}`);
-      Logger.success(`Failed: ${bridgeManager.failedTx}`);
     }
     
-    Logger.success(`\nAll wallets processed!`);
+    Logger.success(`\nBridge process completed!`);
+    Logger.success(`Total transactions: ${CONFIG.TOTAL_TX}`);
+    Logger.success(`Successful: ${bridgeManager.completedTx}`);
+    Logger.success(`Failed: ${bridgeManager.failedTx}`);
   } catch (error) {
     Logger.error(`Fatal error: ${error.message}`);
     process.exit(1);
