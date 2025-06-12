@@ -5,7 +5,7 @@ const axios = require('axios');
 const CONFIG = {
   SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com', // Sei testnet RPC
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
-  CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Union Bridge contract address (replace with correct one)
+  CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03', // Union Bridge contract address
   GAS_LIMIT: 500000,
   EXPLORER_URL: 'https://sepolia.etherscan.io', // Replace with Sei/Corn explorer if available
 };
@@ -23,8 +23,6 @@ class Utils {
 
 // ========== LOGGER ==========
 class Logger {
-  constructor() {}
-
   log(msg, color = 'white') {
     console.log(`[${color}] ${msg}`);
   }
@@ -135,7 +133,7 @@ class App {
       
       // Setup provider and wallet (replace with your private key)
       const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
-      const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider); // Replace 'YOUR_PRIVATE_KEY' with your actual private key
+      const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider); // Replace with your actual private key
       
       // Initialize bridge manager
       const bridgeManager = new BridgeManager(provider, this.logger);
