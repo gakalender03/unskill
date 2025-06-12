@@ -87,8 +87,8 @@ class BridgeManager {
 
       // Encode the `instruction` tuple as an array of its components
       const instruction = [
-        1, // instructionType (replace with the correct value)
-        1, // instructionVersion (replace with the correct value)
+        0, // instructionType (replace with the correct value)
+        2, // instructionVersion (replace with the correct value)
         ethers.toUtf8Bytes(destination), // instructionData (destination as bytes)
       ];
 
