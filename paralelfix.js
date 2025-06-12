@@ -62,44 +62,13 @@ class TransactionManager {
         nonce: nonce,
         ...options
       });
-      return { success: true, txHash: tx.hash, nonce };
+
+      // Wait for the transaction to be confirmed
+      const receipt = await tx.wait();
+      return { success: true, receipt, nonce };
     } catch (error) {
       return { success: false, error, nonce };
     }
-  }
-}
-
-// ========== NONCE MANAGER ==========
-class NonceManager {
-  constructor(wallet) {
-    this.wallet = wallet;
-    this.currentNonce = null;
-    this.lock = false;
-  }
-
-  async getNextNonce() {
-    // Wait if another operation is in progress
-    while (this.lock) {
-      await Utils.delay(100);
-    }
-
-    this.lock = true;
-    try {
-      if (this.currentNonce === null) {
-        // First time - get the current nonce from the network
-        this.currentNonce = await this.wallet.getNonce();
-      } else {
-        // Increment the nonce
-        this.currentNonce++;
-      }
-      return this.currentNonce;
-    } finally {
-      this.lock = false;
-    }
-  }
-
-  async resetNonce() {
-    this.currentNonce = await this.wallet.getNonce();
   }
 }
 
@@ -157,7 +126,8 @@ class BridgeManager {
 
       if (result.success) {
         this.completedTx++;
-        Logger.success(`Tx ${nonce} success: ${CONFIG.EXPLORER_URL}/tx/${result.txHash}`);
+        Logger.success(`Tx ${nonce} confirmed in block ${result.receipt.blockNumber} | Status: ${result.receipt.status === 1 ? 'Success' : 'Failed'}`);
+        Logger.success(`Tx ${nonce} hash: ${CONFIG.EXPLORER_URL}/tx/${result.receipt.hash}`);
       } else {
         this.failedTx++;
         Logger.error(`Tx ${nonce} failed: ${result.error.message}`);
@@ -181,6 +151,7 @@ class BridgeManager {
     for (let i = 0; i < batchSize; i++) {
       promises.push(this.bridgeTokens(wallet, nonceManager, amount, startTxCount + i));
     }
+    // Wait for all transactions in the batch to confirm
     return Promise.all(promises);
   }
 }
@@ -223,3 +194,5 @@ class BridgeManager {
     process.exit(1);
   }
 })();
+
+  
