@@ -120,7 +120,6 @@ class BridgeManager {
   constructor() {
     this.completedTx = 0;
     this.failedTx = 0;
-    this.pendingTx = 0;
   }
 
   async bridgeTokens(wallet, nonceManager, amount, txCount) {
@@ -159,7 +158,6 @@ class BridgeManager {
         instruction
       ]);
 
-      this.pendingTx++;
       const result = await TransactionManager.sendTransaction(
         wallet,
         CONFIG.CONTRACT_ADDRESS,
@@ -168,7 +166,6 @@ class BridgeManager {
         gasPrice,
         { data }
       );
-      this.pendingTx--;
 
       if (result.success) {
         this.completedTx++;
@@ -194,12 +191,15 @@ class BridgeManager {
 
   async processBatch(wallet, nonceManager, batchSize, amount, startTxCount) {
     Logger.info(`Starting batch of ${batchSize} transactions...`);
-    const results = [];
     
+    // Send all transactions in parallel
+    const promises = [];
     for (let i = 0; i < batchSize; i++) {
-      const result = await this.bridgeTokens(wallet, nonceManager, amount, startTxCount + i);
-      results.push(result);
+      promises.push(this.bridgeTokens(wallet, nonceManager, amount, startTxCount + i));
     }
+    
+    // Wait for all transactions to confirm
+    const results = await Promise.all(promises);
     
     Logger.info(`Batch completed (${batchSize} tx)`);
     return results;
