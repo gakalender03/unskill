@@ -180,7 +180,7 @@ class App {
       const bridgeManager = new BridgeManager(provider, this.logger);
       
       // Set amount to bridge (0.0001 SEI)
-      const amount = ethers.parseUnits('0.0001', 18); // 0.0001 SEI
+      const amount = ethers.parseUnits('0.0000001', 18); // 0.0001 SEI
       
       // Execute bridge to Corn testnet
       await bridgeManager.bridgeTokens(wallet, amount, 'corn');
