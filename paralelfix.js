@@ -2,7 +2,7 @@ const { ethers } = require('ethers');
 
 // ========== CONFIGURATION ==========
 const CONFIG = {
-  SEI_RPC: 'https://sei-testnet.drpc.org',
+  SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com',
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,
@@ -10,9 +10,9 @@ const CONFIG = {
   GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'), // 0.00001 Gwei increment per tx
   MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Max gas price cap in Gwei
   EXPLORER_URL: 'https://seitrace.com',
-  BATCH_SIZE: 50,
+  BATCH_SIZE: 5,
   TOTAL_TX: 1000,
-  DELAY_BETWEEN_BATCHES: 20000,
+  DELAY_BETWEEN_BATCHES: 1000,
   AMOUNT_TO_BRIDGE: '0.000001',
 };
 
