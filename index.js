@@ -80,7 +80,7 @@ class BridgeManager {
       this.logger.info(`Wallet: ${wallet.address}`);
 
       // Prepare parameters for the `send` function
-      const channelId = 1; // Replace with the correct channel ID
+      const channelId = 2; // Replace with the correct channel ID
       const timeoutHeight = 0; // Replace with the correct timeout height
       const timeoutTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
       const salt = ethers.hexlify(ethers.randomBytes(32)); // Random salt
