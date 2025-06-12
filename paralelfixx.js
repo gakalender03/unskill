@@ -2,7 +2,7 @@ const { ethers } = require('ethers');
 
 // ========== CONFIGURATION ==========
 const CONFIG = {
-  SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com',
+  SEI_RPC: 'https://sei-testnet.drpc.org',
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,
