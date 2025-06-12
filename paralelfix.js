@@ -6,13 +6,13 @@ const CONFIG = {
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,
-  BASE_GAS_PRICE: ethers.parseUnits('1.7', 'gwei'), // Base gas price in Gwei
-  GAS_PRICE_INCREMENT: ethers.parseUnits('0.00001', 'gwei'), // 0.00001 Gwei increment per tx
+  BASE_GAS_PRICE: ethers.parseUnits('1.2', 'gwei'), // Base gas price in Gwei
+  GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'), // 0.00001 Gwei increment per tx
   MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Max gas price cap in Gwei
   EXPLORER_URL: 'https://seitrace.com',
   BATCH_SIZE: 50,
   TOTAL_TX: 1000,
-  DELAY_BETWEEN_BATCHES: 10000,
+  DELAY_BETWEEN_BATCHES: 20000,
   AMOUNT_TO_BRIDGE: '0.000001',
 };
 
