@@ -10,9 +10,9 @@ const CONFIG = {
   GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'),
   MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'),
   EXPLORER_URL: 'https://seitrace.com',
-  BATCH_SIZE: 10,
+  BATCH_SIZE: 1,
   TOTAL_TX: 1000,
-  DELAY_BETWEEN_BATCHES: 1000,
+  DELAY_BETWEEN_BATCHES: 10000,
   AMOUNT_TO_BRIDGE: '0.000001',
 };
 
