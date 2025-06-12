@@ -63,13 +63,13 @@ class Utils {
           1, // uint256 param 1
           3, // uint256 param 2
           [
-            ethers.BigInt("1000000000000"), // 1e12
+            BigInt("1000000000000"), // 1e12
             2,
             36,
             18,
             0,
             40,
-            ethers.BigInt("1000000000000"), // 1e12
+            BigInt("1000000000000"), // 1e12
           ],
           [
             signerAddress, // Replaces hardcoded address
