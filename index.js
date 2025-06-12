@@ -84,11 +84,13 @@ class BridgeManager {
       const timeoutHeight = 0; // Replace with the correct timeout height
       const timeoutTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
       const salt = ethers.hexlify(ethers.randomBytes(32)); // Random salt
-      const instruction = {
-        instructionType: 1, // Replace with the correct instruction type
-        instructionVersion: 1, // Replace with the correct instruction version
-        instructionData: ethers.toUtf8Bytes(destination), // Destination as bytes
-      };
+
+      // Encode the `instruction` tuple as an array of its components
+      const instruction = [
+        1, // instructionType (replace with the correct value)
+        1, // instructionVersion (replace with the correct value)
+        ethers.toUtf8Bytes(destination), // instructionData (destination as bytes)
+      ];
 
       // Encode the `send` function parameters
       const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(
