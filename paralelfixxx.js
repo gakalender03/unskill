@@ -13,7 +13,7 @@ const CONFIG = {
   BATCH_SIZE: 10,
   TOTAL_TX: 1000,
   DELAY_BETWEEN_BATCHES: 1000,
-  AMOUNT_TO_BRIDGE: '0.000001',
+  AMOUNT_TO_BRIDGE: ethers.parseUnits('0.000001', 'ether').toString(),
 };
 
 // ========== UTILITIES ==========
