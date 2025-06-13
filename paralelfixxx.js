@@ -142,27 +142,28 @@ class BridgeManager {
       const salt = ethers.hexlify(ethers.randomBytes(32));
       
       // === Begin ABI ENCODING Injection ===
-      const instructionType = 0;
-      const instructionVersion = 2;
+const instructionType = 0;
+const instructionVersion = 2;
 
-      // Dynamic values (assuming some static examples for illustration)
-      const userAddress = wallet.address;  // dynamic wallet address
-      const contractAddress = CONFIG.CONTRACT_ADDRESS;
-      const destinationAddress = ethers.getAddress("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
-      const tokenAmount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);  // Token amount to bridge
-      const string1 = "SEI";
-      const string2 = "Sei";
+// Dynamic values (assuming some static examples for illustration)
+const userAddress = wallet.address;  // dynamic wallet address
+const contractAddress = CONFIG.CONTRACT_ADDRESS;
+const destinationAddress = ethers.getAddress("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+const tokenAmount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);  // Token amount to bridge
+const string1 = "SEI";
+const string2 = "Sei";
 
-      // Access ethers.utils.defaultAbiCoder correctly
-      const encodedInnerPayload = ethers.utils.defaultAbiCoder.encode(
-        ["address", "address", "address", "uint256", "string", "string"],
-        [userAddress, contractAddress, destinationAddress, tokenAmount, string1, string2]
-      );
+// Use ethers.AbiCoder directly
+const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+const encodedInnerPayload = abiCoder.encode(
+  ["address", "address", "address", "uint256", "string", "string"],
+  [userAddress, contractAddress, destinationAddress, tokenAmount, string1, string2]
+);
 
-      // Outer structure
-      const outerInstruction = [instructionType, instructionVersion, encodedInnerPayload];
+// Outer structure
+const outerInstruction = [instructionType, instructionVersion, encodedInnerPayload];
+// === End ABI ENCODING Injection ===
 
-      // === End ABI ENCODING Injection ===
 
       const iface = new ethers.Interface([
         "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
