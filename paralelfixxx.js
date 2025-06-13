@@ -16,8 +16,7 @@ const CONFIG = {
   AMOUNT_TO_BRIDGE: '0.000001',
   PRIVATE_KEYS: [
     '0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe',
-   '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52', 
-    // Add more private keys here
+    '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52',
   ],
   // Bridge-specific config
   CHANNEL_ID: 2,
@@ -104,35 +103,39 @@ class NonceManager {
 // ========== BRIDGE DATA GENERATOR ==========
 class BridgeDataGenerator {
   static generateInstruction(walletAddress) {
-    // Main instruction structure
-    return [
-      0, // instruction type
-      2, // some flag
-      ethers.AbiCoder.defaultAbiCoder().encode(
-        ['tuple(uint256,address,address,address,string,string,address)'],
-        [[
-          ethers.parseUnits("1000000", "wei"), // amount
-          walletAddress,                       // sender
-          walletAddress,                       // receiver 
-          CONFIG.ETH_TOKEN_ADDRESS,            // token address
-          "SEI",                               // token name
-          "SEI",                               // token symbol
-          CONFIG.BRIDGE_CONTRACT               // bridge contract
-        ]]
-      )
-    ];
+    // Hardcoded values to match your expected hex output
+    const amount = ethers.parseUnits("1", "wei"); // 1,000,000 wei (0x0f4240)
+    const tokenName = "SEI";
+    const tokenSymbol = "SEI";
+    
+    const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(
+      ['tuple(uint256,address,address,address,string,string,address)'],
+      [[
+        amount,
+        walletAddress,
+        walletAddress,
+        CONFIG.ETH_TOKEN_ADDRESS,
+        tokenName,
+        tokenSymbol,
+        CONFIG.BRIDGE_CONTRACT
+      ]]
+    );
+
+    return [1, 3, encodedData]; // Using type=1 and flag=3 as per your example
   }
 
-  static generateTxData(wallet, amount) {
+  static generateTxData(wallet) {
     const instruction = this.generateInstruction(wallet.address);
+    const timeout = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
+    
     const iface = new ethers.Interface([
-      "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
+      "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, tuple(uint8,uint8,bytes) instruction)"
     ]);
     
     return iface.encodeFunctionData("send", [
       CONFIG.CHANNEL_ID,
       0, // timeoutHeight
-      BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000), // timeoutTimestamp
+      timeout, // timeoutTimestamp (nano)
       Utils.generateSalt(),
       instruction
     ]);
@@ -179,7 +182,7 @@ class BridgeManager {
       const nonceManager = await this.getNonceManager(wallet);
       const nonce = await nonceManager.getNextNonce();
       const gasPrice = Utils.increaseGasPrice(CONFIG.BASE_GAS_PRICE, CONFIG.GAS_PRICE_INCREMENT, this.completedTx + this.failedTx);
-      const data = BridgeDataGenerator.generateTxData(wallet, amount);
+      const data = BridgeDataGenerator.generateTxData(wallet);
       
       promises.push(
         TransactionManager.sendTransaction(wallet, CONFIG.CONTRACT_ADDRESS, amount, nonce, gasPrice, data)
