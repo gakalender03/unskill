@@ -13,7 +13,7 @@ const CONFIG = {
   BATCH_SIZE: 2,
   TOTAL_TX: 1000,
   DELAY_BETWEEN_BATCHES: 10000,
-  AMOUNT_TO_BRIDGE: '0.000001',
+  AMOUNT_TO_BRIDGE: '0.000001', // 0.000001 ETH
   PRIVATE_KEYS: [
     '0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe',
     '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52',
@@ -103,30 +103,60 @@ class NonceManager {
 // ========== BRIDGE DATA GENERATOR ==========
 class BridgeDataGenerator {
   static generateInstruction(walletAddress) {
-    // Hardcoded values to match your expected hex output
-    const amount = ethers.parseUnits("1", "wei"); // 1,000,000 wei (0x0f4240)
-    const tokenName = "SEI";
-    const tokenSymbol = "SEI";
+    // Fixed amount of 0.000001 ETH (in wei)
+    const microEthAmount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, "ether");
     
+    // Structure matching first hex's format
     const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(
-      ['tuple(uint256,address,address,address,string,string,address)'],
-      [[
-        amount,
+      [
+        'uint256',      // amount (0.000001 ETH)
+        'address',      // src beneficiary
+        'address',      // dst beneficiary
+        'address',      // token (ETH)
+        'string',       // name "SEI"
+        'string',       // symbol "Sei"
+        'address',      // bridge contract
+        'uint256[2][]', // first array
+        'uint256[2][]', // second array
+        'tuple(uint256,uint256[])[]' // complex nested array
+      ],
+      [
+        microEthAmount,
         walletAddress,
         walletAddress,
         CONFIG.ETH_TOKEN_ADDRESS,
-        tokenName,
-        tokenSymbol,
-        CONFIG.BRIDGE_CONTRACT
-      ]]
+        "SEI",
+        "Sei",
+        CONFIG.BRIDGE_CONTRACT,
+        // First dynamic array (1 element with 2 values)
+        [
+          [microEthAmount, ethers.parseUnits("0.000002", "ether")]
+        ],
+        // Second dynamic array (2 elements)
+        [
+          [microEthAmount, ethers.parseUnits("0.000002", "ether")],
+          [ethers.parseUnits("0.000003", "ether"), ethers.parseUnits("0.000004", "ether")]
+        ],
+        // Complex nested array
+        [
+          [
+            microEthAmount, 
+            [ethers.parseUnits("0.000002", "ether"), ethers.parseUnits("0.000003", "ether")]
+          ],
+          [
+            ethers.parseUnits("0.000004", "ether"), 
+            [ethers.parseUnits("0.000005", "ether")]
+          ]
+        ]
+      ]
     );
 
-    return [0, 2, encodedData]; // Using type=1 and flag=3 as per your example
+    return [1, 3, encodedData]; // Matches first hex's instruction type/flags
   }
 
   static generateTxData(wallet) {
     const instruction = this.generateInstruction(wallet.address);
-    const timeout = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
+    const timeout = Math.floor(Date.now() / 1000) + 3600; // 1 hour timeout
     
     const iface = new ethers.Interface([
       "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, tuple(uint8,uint8,bytes) instruction)"
@@ -134,9 +164,9 @@ class BridgeDataGenerator {
     
     return iface.encodeFunctionData("send", [
       CONFIG.CHANNEL_ID,
-      0, // timeoutHeight
-      timeout, // timeoutTimestamp (nano)
-      Utils.generateSalt(),
+      0,                      // timeoutHeight
+      timeout,                // timeoutTimestamp
+      "0x0000000000000000000000000000000000000000000000000000000000000001", // Fixed salt
       instruction
     ]);
   }
@@ -174,7 +204,7 @@ class BridgeManager {
   }
 
   async processBatch(batchSize) {
-    const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);
+    const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, "ether");
     const promises = [];
     
     for (let i = 0; i < batchSize; i++) {
