@@ -21,7 +21,7 @@ const CONFIG = {
   ],
   // Bridge-specific config
   CHANNEL_ID: 2,
-  BRIDGE_CONTRACT: '0xE86bEd5B0813430dF660d17363b89fe9bd8232D8',
+  BRIDGE_CONTRACT: '0xe86bed5b0813430df660d17363b89fe9bd8232d8',
   ETH_TOKEN_ADDRESS: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 };
 
