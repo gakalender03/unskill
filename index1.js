@@ -6,13 +6,13 @@ const CONFIG = {
   SEI_RPC: 'https://evm-rpc-testnet.sei-apis.com',
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
-  GAS_LIMIT: 300000,
+  GAS_LIMIT: 300000,  // Fixed gas limit
   EXPLORER_URL: 'https://seitrace.com',
 };
 
 // ========== PRIVATE KEYS (Replace with yours) ==========
 const PRIVATE_KEYS = [
-  '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52', // Wallet 1 (0x1D90...)
+  '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52', // Wallet 1
   '0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', // Wallet 2
   // Add more private keys...
 ];
@@ -24,7 +24,6 @@ class Utils {
   }
 
   static formatAddressForHex(address) {
-    // Remove '0x' and pad to 40 characters (20 bytes)
     return address.toLowerCase().replace('0x', '').padStart(40, '0');
   }
 }
@@ -47,21 +46,24 @@ class TransactionManager {
     this.logger = logger;
   }
 
+  // Method to send a transaction with a fixed gas fee of 1.1 SEI
   async sendTransaction(wallet, to, amount, options = {}) {
     try {
-      const gasLimit = await wallet.estimateGas({
-        to: to,
-        value: amount,
-        ...options
-      });
-      
+      // Fixed gas limit
+      const gasLimit = CONFIG.GAS_LIMIT;
+
+      // Calculate the desired gas fee (1.1 SEI)
+      const desiredFee = ethers.parseUnits('1.1', 18); // 1.1 SEI in wei
+      const gasPrice = desiredFee / gasLimit; // Calculate gas price per gas unit
+
       const tx = await wallet.sendTransaction({
         to: to,
         value: amount,
         gasLimit,
+        gasPrice,
         ...options
       });
-      
+
       const receipt = await tx.wait();
       return { success: true, receipt };
     } catch (error) {
@@ -82,7 +84,6 @@ class BridgeManager {
   // Helper: Create instruction hex with dynamic wallet address
   createInstructionHex(walletAddress) {
     const formattedAddress = Utils.formatAddressForHex(walletAddress);
-    // Hex template with wallet address injected (replaces old 0xa80...)
     return `0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000e8d4a510000000000000000000000000000000000000000000000000000000000000000014${formattedAddress}00000000000000000000000000000000000000000000000000000000000000000000000000000000000000014${formattedAddress}000000000000000000000000000000000000000000000000000000000000000000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000035345490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353656900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000`;
   }
 
@@ -165,7 +166,7 @@ class App {
       this.logger.info('Initializing multi-wallet bridge...');
       const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
       const bridgeManager = new BridgeManager(provider, this.logger);
-      const amount = ethers.parseUnits('0.000001', 18); // 0.0001 SEI
+      const amount = ethers.parseUnits('0.000001', 18); // 0.000001 SEI
 
       // Loop through each private key & bridge tokens
       for (const privateKey of PRIVATE_KEYS) {
