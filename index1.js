@@ -8,7 +8,7 @@ const CONFIG = {
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,  // Fixed gas limit
   EXPLORER_URL: 'https://seitrace.com',
-  BRIDGE_AMOUNT: '0.000001', // SEI to bridge
+  BRIDGE_AMOUNT: '0.00001', // SEI to bridge
   DESTINATION_CHAIN: 'corn', // Destination chain identifier
   RETRY_COUNT: 30, // Packet hash lookup retries
   RETRY_DELAY: 5000, // Delay between retries in ms
