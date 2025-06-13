@@ -12,7 +12,7 @@ const CONFIG = {
   EXPLORER_URL: 'https://seitrace.com',
   BATCH_SIZE: 10,
   TOTAL_TX: 1000, // Total transactions across all wallets
-  DELAY_BETWEEN_BATCHES: 1000,
+  DELAY_BETWEEN_BATCHES: 500,
   AMOUNT_TO_BRIDGE: '0.000001',
   PRIVATE_KEYS: [
     '0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe',
