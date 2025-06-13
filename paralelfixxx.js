@@ -103,55 +103,24 @@ class NonceManager {
 // ========== BRIDGE DATA GENERATOR ==========
 class BridgeDataGenerator {
   static generateInstruction(walletAddress) {
-    // Fixed amount of 0.000001 ETH (in wei)
-    const microEthAmount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, "ether");
+    const amount = ethers.parseUnits("0.000001", "ether"); // 0.000001 ETH
+    const tokenName = "SEI";
+    const tokenSymbol = "Sei";
     
-    // Structure matching first hex's format
     const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(
+      ['uint256', 'address', 'address', 'address', 'string', 'string', 'address'],
       [
-        'uint256',      // amount (0.000001 ETH)
-        'address',      // src beneficiary
-        'address',      // dst beneficiary
-        'address',      // token (ETH)
-        'string',       // name "SEI"
-        'string',       // symbol "Sei"
-        'address',      // bridge contract
-        'uint256[2][]', // first array
-        'uint256[2][]', // second array
-        'tuple(uint256,uint256[])[]' // complex nested array
-      ],
-      [
-        microEthAmount,
+        amount,
         walletAddress,
         walletAddress,
         CONFIG.ETH_TOKEN_ADDRESS,
-        "SEI",
-        "Sei",
-        CONFIG.BRIDGE_CONTRACT,
-        // First dynamic array (1 element with 2 values)
-        [
-          [microEthAmount, ethers.parseUnits("0.000002", "ether")]
-        ],
-        // Second dynamic array (2 elements)
-        [
-          [microEthAmount, ethers.parseUnits("0.000002", "ether")],
-          [ethers.parseUnits("0.000003", "ether"), ethers.parseUnits("0.000004", "ether")]
-        ],
-        // Complex nested array
-        [
-          [
-            microEthAmount, 
-            [ethers.parseUnits("0.000002", "ether"), ethers.parseUnits("0.000003", "ether")]
-          ],
-          [
-            ethers.parseUnits("0.000004", "ether"), 
-            [ethers.parseUnits("0.000005", "ether")]
-          ]
-        ]
+        tokenName,
+        tokenSymbol,
+        CONFIG.BRIDGE_CONTRACT
       ]
     );
 
-    return [1, 3, encodedData]; // Matches first hex's instruction type/flags
+    return [1, 3, encodedData]; // Matches successful tx
   }
 
   static generateTxData(wallet) {
@@ -166,11 +135,12 @@ class BridgeDataGenerator {
       CONFIG.CHANNEL_ID,
       0,                      // timeoutHeight
       timeout,                // timeoutTimestamp
-      "0x0000000000000000000000000000000000000000000000000000000000000001", // Fixed salt
+      "0x0000000000000000000000000000000000000000000000000000000000000000", // Zero salt
       instruction
     ]);
   }
 }
+
 
 // ========== WALLET MANAGER ==========
 class WalletManager {
