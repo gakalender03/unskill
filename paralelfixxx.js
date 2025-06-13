@@ -194,7 +194,10 @@ class BridgeManager {
 // ========== MAIN SCRIPT ==========
 (async function main() {
   const privateKey = '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52'; // Replace with your private key
-  const wallet = new ethers.Wallet(privateKey, new ethers.providers.JsonRpcProvider(CONFIG.SEI_RPC));
+  const { JsonRpcProvider, Wallet } = require('ethers');
+const provider = new JsonRpcProvider(CONFIG.SEI_RPC);
+const wallet = new Wallet(privateKey, provider);
+
   const nonceManager = new NonceManager(wallet);
   const bridgeManager = new BridgeManager();
 
