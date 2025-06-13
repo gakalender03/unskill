@@ -153,14 +153,14 @@ class BridgeManager {
       const string1 = "SEI";
       const string2 = "Sei";
 
-      // Encode inner instruction payload
-      const innerPayload = ethers.utils.defaultAbiCoder.encode(
+      // Access ethers.utils.defaultAbiCoder correctly
+      const encodedInnerPayload = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "address", "uint256", "string", "string"],
         [userAddress, contractAddress, destinationAddress, tokenAmount, string1, string2]
       );
 
       // Outer structure
-      const outerInstruction = [instructionType, instructionVersion, innerPayload];
+      const outerInstruction = [instructionType, instructionVersion, encodedInnerPayload];
 
       // === End ABI ENCODING Injection ===
 
