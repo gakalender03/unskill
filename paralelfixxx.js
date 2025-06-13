@@ -13,7 +13,7 @@ const CONFIG = {
   BATCH_SIZE: 10,
   TOTAL_TX: 1000,
   DELAY_BETWEEN_BATCHES: 1000,
-  AMOUNT_TO_BRIDGE: '0.000001',
+  AMOUNT_TO_BRIDGE: ethers.parseUnits('0.000001', 'ether'), // Convert to wei
 };
 
 // ========== UTILITIES ==========
@@ -23,14 +23,11 @@ class Utils {
   }
 
   static increaseGasPrice(baseGasPrice, increment, txCount) {
-    // Ensure we're using BigInts
     baseGasPrice = BigInt(baseGasPrice);
     increment = BigInt(increment);
     
-    // Calculate increased gas price
     let increasedGasPrice = baseGasPrice + (increment * BigInt(txCount));
     
-    // Cap at maximum gas price
     if (increasedGasPrice > BigInt(CONFIG.MAX_GAS_PRICE)) {
       increasedGasPrice = BigInt(CONFIG.MAX_GAS_PRICE);
     }
@@ -90,7 +87,6 @@ class NonceManager {
   }
 
   async getNextNonce() {
-    // Wait if another operation is in progress
     while (this.lock) {
       await Utils.delay(100);
     }
@@ -98,10 +94,8 @@ class NonceManager {
     this.lock = true;
     try {
       if (this.currentNonce === null) {
-        // First time - get the current nonce from the network
         this.currentNonce = await this.wallet.getNonce();
       } else {
-        // Increment the nonce
         this.currentNonce++;
       }
       return this.currentNonce;
@@ -131,7 +125,7 @@ class BridgeManager {
         CONFIG.GAS_PRICE_INCREMENT, 
         txCount
       );
-      
+
       // Convert to human-readable Gwei for logging
       const gasPriceGwei = ethers.formatUnits(gasPrice, 'gwei');
       Logger.info(`Tx ${nonce} using gas price: ${parseFloat(gasPriceGwei).toFixed(5)} Gwei`);
@@ -153,12 +147,11 @@ class BridgeManager {
 
       // Replace the address in the instruction with the new address derived from the private key
       instruction = instruction.map((hexString) => {
-  if (typeof hexString === 'string') {
-    return hexString.replace(/0x14a8068e71a3f46c888c39ea5deba318c16393573b/g, walletAddress);
-  }
-  return hexString; // Leave non-strings unchanged
-});
-
+        if (typeof hexString === 'string') {
+          return hexString.replace(/0x14a8068e71a3f46c888c39ea5deba318c16393573b/g, walletAddress);
+        }
+        return hexString; // Leave non-strings unchanged
+      });
 
       const iface = new ethers.Interface([
         "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
@@ -175,7 +168,7 @@ class BridgeManager {
       const result = await TransactionManager.sendTransaction(
         wallet,
         CONFIG.CONTRACT_ADDRESS,
-        amount,
+        amount, // Now using amount in wei
         nonce,
         gasPrice,
         { data }
@@ -201,10 +194,7 @@ class BridgeManager {
 // ========== MAIN SCRIPT ==========
 (async function main() {
   const privateKey = '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52'; // Replace with your private key
-  const { JsonRpcProvider, Wallet } = require('ethers');
-const provider = new JsonRpcProvider(CONFIG.SEI_RPC);
-const wallet = new Wallet(privateKey, provider);
-
+  const wallet = new ethers.Wallet(privateKey, new ethers.providers.JsonRpcProvider(CONFIG.SEI_RPC));
   const nonceManager = new NonceManager(wallet);
   const bridgeManager = new BridgeManager();
 
