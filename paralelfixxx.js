@@ -239,8 +239,6 @@ class BridgeManager {
       return { success: false, error };
     }
   }
-}
-
 
   async processBatch(wallet, nonceManager, batchSize, amount, startTxCount) {
     Logger.info(`Starting batch of ${batchSize} transactions...`);
