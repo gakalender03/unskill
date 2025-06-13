@@ -120,7 +120,7 @@ class BridgeDataGenerator {
       ]
     );
 
-    return [1, 3, encodedData]; // Matches successful tx
+    return [0, 2, encodedData]; // Matches successful tx
   }
 
   static generateTxData(wallet) {
