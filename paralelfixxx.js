@@ -121,7 +121,7 @@ class BridgeDataGenerator {
       ]]
     );
 
-    return [1, 3, encodedData]; // Using type=1 and flag=3 as per your example
+    return [0, 2, encodedData]; // Using type=1 and flag=3 as per your example
   }
 
   static generateTxData(wallet) {
