@@ -6,14 +6,23 @@ const CONFIG = {
   UNION_GRAPHQL: 'https://graphql.union.build/v1/graphql',
   CONTRACT_ADDRESS: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   GAS_LIMIT: 300000,
-  BASE_GAS_PRICE: ethers.parseUnits('1.2', 'gwei'), // Base gas price in Gwei
-  GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'), // 0.00001 Gwei increment per tx
-  MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'), // Max gas price cap in Gwei
+  BASE_GAS_PRICE: ethers.parseUnits('1.2', 'gwei'),
+  GAS_PRICE_INCREMENT: ethers.parseUnits('0.0000001', 'gwei'),
+  MAX_GAS_PRICE: ethers.parseUnits('2', 'gwei'),
   EXPLORER_URL: 'https://seitrace.com',
-  BATCH_SIZE: 10,
+  BATCH_SIZE: 2,
   TOTAL_TX: 1000,
-  DELAY_BETWEEN_BATCHES: 1000,
+  DELAY_BETWEEN_BATCHES: 10000,
   AMOUNT_TO_BRIDGE: '0.000001',
+  PRIVATE_KEYS: [
+    '0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe',
+   '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52', 
+    // Add more private keys here
+  ],
+  // Bridge-specific config
+  CHANNEL_ID: 2,
+  BRIDGE_CONTRACT: '0xE86bEd5B0813430dF660d17363b89fe9bd8232D8',
+  ETH_TOKEN_ADDRESS: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 };
 
 // ========== UTILITIES ==========
@@ -23,28 +32,24 @@ class Utils {
   }
 
   static increaseGasPrice(baseGasPrice, increment, txCount) {
-    // Ensure we're using BigInts
     baseGasPrice = BigInt(baseGasPrice);
     increment = BigInt(increment);
-    
-    // Calculate increased gas price
     let increasedGasPrice = baseGasPrice + (increment * BigInt(txCount));
-    
-    // Cap at maximum gas price
-    if (increasedGasPrice > BigInt(CONFIG.MAX_GAS_PRICE)) {
-      increasedGasPrice = BigInt(CONFIG.MAX_GAS_PRICE);
-    }
-    
-    return increasedGasPrice;
+    return increasedGasPrice > BigInt(CONFIG.MAX_GAS_PRICE) 
+      ? BigInt(CONFIG.MAX_GAS_PRICE) 
+      : increasedGasPrice;
+  }
+
+  static generateSalt() {
+    return ethers.hexlify(ethers.randomBytes(32));
   }
 }
 
-// ========== SIMPLIFIED LOGGER ==========
+// ========== LOGGER ==========
 class Logger {
   static log(msg) {
     console.log(`[${new Date().toLocaleTimeString()}] ${msg}`);
   }
-
   static info(msg) { this.log(`ℹ ${msg}`); }
   static error(msg) { this.log(`✗ ${msg}`); }
   static success(msg) { this.log(`✓ ${msg}`); }
@@ -52,31 +57,20 @@ class Logger {
 
 // ========== TRANSACTION MANAGER ==========
 class TransactionManager {
-  static async sendTransaction(wallet, to, amount, nonce, gasPrice, options = {}) {
+  static async sendTransaction(wallet, to, amount, nonce, gasPrice, data) {
     try {
       const tx = await wallet.sendTransaction({
-        to: to,
+        to,
         value: amount,
         gasLimit: CONFIG.GAS_LIMIT,
-        gasPrice: gasPrice,
-        nonce: nonce,
-        ...options
+        gasPrice,
+        nonce,
+        data
       });
-
-      // Wait for transaction confirmation
       const receipt = await tx.wait();
-      return { 
-        success: true, 
-        receipt,
-        txHash: tx.hash,
-        nonce 
-      };
+      return { success: true, receipt, txHash: tx.hash, nonce };
     } catch (error) {
-      return { 
-        success: false, 
-        error, 
-        nonce 
-      };
+      return { success: false, error, nonce };
     }
   }
 }
@@ -90,20 +84,12 @@ class NonceManager {
   }
 
   async getNextNonce() {
-    // Wait if another operation is in progress
-    while (this.lock) {
-      await Utils.delay(100);
-    }
-
+    while (this.lock) await Utils.delay(100);
     this.lock = true;
     try {
-      if (this.currentNonce === null) {
-        // First time - get the current nonce from the network
-        this.currentNonce = await this.wallet.getNonce();
-      } else {
-        // Increment the nonce
-        this.currentNonce++;
-      }
+      this.currentNonce = this.currentNonce === null 
+        ? await this.wallet.getNonce() 
+        : this.currentNonce + 1;
       return this.currentNonce;
     } finally {
       this.lock = false;
@@ -115,136 +101,129 @@ class NonceManager {
   }
 }
 
+// ========== BRIDGE DATA GENERATOR ==========
+class BridgeDataGenerator {
+  static generateInstruction(walletAddress) {
+    // Main instruction structure
+    return [
+      0, // instruction type
+      2, // some flag
+      ethers.AbiCoder.defaultAbiCoder().encode(
+        ['tuple(uint256,address,address,address,string,string,address)'],
+        [[
+          ethers.parseUnits("1000000", "wei"), // amount
+          walletAddress,                       // sender
+          walletAddress,                       // receiver 
+          CONFIG.ETH_TOKEN_ADDRESS,            // token address
+          "SEI",                               // token name
+          "SEI",                               // token symbol
+          CONFIG.BRIDGE_CONTRACT               // bridge contract
+        ]]
+      )
+    ];
+  }
+
+  static generateTxData(wallet, amount) {
+    const instruction = this.generateInstruction(wallet.address);
+    const iface = new ethers.Interface([
+      "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
+    ]);
+    
+    return iface.encodeFunctionData("send", [
+      CONFIG.CHANNEL_ID,
+      0, // timeoutHeight
+      BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000), // timeoutTimestamp
+      Utils.generateSalt(),
+      instruction
+    ]);
+  }
+}
+
+// ========== WALLET MANAGER ==========
+class WalletManager {
+  constructor() {
+    this.provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
+    this.wallets = CONFIG.PRIVATE_KEYS.map(key => new ethers.Wallet(key, this.provider));
+    this.currentIndex = 0;
+  }
+
+  getNextWallet() {
+    const wallet = this.wallets[this.currentIndex];
+    this.currentIndex = (this.currentIndex + 1) % this.wallets.length;
+    return wallet;
+  }
+}
+
 // ========== BRIDGE MANAGER ==========
 class BridgeManager {
   constructor() {
     this.completedTx = 0;
     this.failedTx = 0;
+    this.walletManager = new WalletManager();
+    this.nonceManagers = new Map();
   }
 
-  async bridgeTokens(wallet, nonceManager, amount, txCount) {
-    try {
-      const nonce = await nonceManager.getNextNonce();
-      
-      const gasPrice = Utils.increaseGasPrice(
-        CONFIG.BASE_GAS_PRICE, 
-        CONFIG.GAS_PRICE_INCREMENT, 
-        txCount
-      );
-      
-      // Convert to human-readable Gwei for logging
-      const gasPriceGwei = ethers.formatUnits(gasPrice, 'gwei');
-      Logger.info(`Tx ${nonce} using gas price: ${parseFloat(gasPriceGwei).toFixed(5)} Gwei`);
-      
-      const channelId = 2;
-      const timeoutHeight = 0;
-      const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
-      const salt = ethers.hexlify(ethers.randomBytes(32));
-      
-      // Updated instruction with new address
-      const instruction = [
-        0,
-        2,
-        '0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000e8d4a510000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000035345490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353656900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000', 
-      ];
-
-      const iface = new ethers.Interface([
-        "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
-      ]);
-      
-      const data = iface.encodeFunctionData("send", [
-        channelId,
-        timeoutHeight,
-        timeoutTimestamp,
-        salt,
-        instruction
-      ]);
-
-      const result = await TransactionManager.sendTransaction(
-        wallet,
-        CONFIG.CONTRACT_ADDRESS,
-        amount,
-        nonce,
-        gasPrice,
-        { data }
-      );
-
-      if (result.success) {
-        this.completedTx++;
-        Logger.success(`Tx ${nonce} confirmed in block ${result.receipt.blockNumber}`);
-        Logger.success(`Tx hash: ${CONFIG.EXPLORER_URL}/tx/${result.txHash}`);
-      } else {
-        this.failedTx++;
-        Logger.error(`Tx ${nonce} failed: ${result.error.message}`);
-        // If the failure is due to nonce being too low, reset the nonce manager
-        if (result.error.message.includes('nonce too low')) {
-          Logger.info('Resetting nonce manager due to nonce too low error');
-          await nonceManager.resetNonce();
-        }
-      }
-
-      return result;
-    } catch (error) {
-      this.failedTx++;
-      Logger.error(`Tx error: ${error.message}`);
-      return { success: false, error };
+  async getNonceManager(wallet) {
+    if (!this.nonceManagers.has(wallet.address)) {
+      this.nonceManagers.set(wallet.address, new NonceManager(wallet));
     }
+    return this.nonceManagers.get(wallet.address);
   }
 
-  async processBatch(wallet, nonceManager, batchSize, amount, startTxCount) {
-    Logger.info(`Starting batch of ${batchSize} transactions...`);
-    
-    // Send all transactions in parallel
+  async processBatch(batchSize) {
+    const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);
     const promises = [];
+    
     for (let i = 0; i < batchSize; i++) {
-      promises.push(this.bridgeTokens(wallet, nonceManager, amount, startTxCount + i));
+      const wallet = this.walletManager.getNextWallet();
+      const nonceManager = await this.getNonceManager(wallet);
+      const nonce = await nonceManager.getNextNonce();
+      const gasPrice = Utils.increaseGasPrice(CONFIG.BASE_GAS_PRICE, CONFIG.GAS_PRICE_INCREMENT, this.completedTx + this.failedTx);
+      const data = BridgeDataGenerator.generateTxData(wallet, amount);
+      
+      promises.push(
+        TransactionManager.sendTransaction(wallet, CONFIG.CONTRACT_ADDRESS, amount, nonce, gasPrice, data)
+          .then(result => {
+            if (result.success) {
+              this.completedTx++;
+              Logger.success(`[${wallet.address.slice(0,6)}] Tx ${nonce} completed: ${CONFIG.EXPLORER_URL}/tx/${result.txHash}`);
+            } else {
+              this.failedTx++;
+              Logger.error(`[${wallet.address.slice(0,6)}] Tx ${nonce} failed: ${result.error.message}`);
+              if (result.error.message.includes('nonce too low')) {
+                nonceManager.resetNonce();
+              }
+            }
+            return result;
+          })
+      );
     }
     
-    // Wait for all transactions to confirm
-    const results = await Promise.all(promises);
-    
-    Logger.info(`Batch completed (${batchSize} tx)`);
-    return results;
+    return Promise.all(promises);
   }
 }
 
-// ========== MAIN APPLICATION ==========
+// ========== MAIN EXECUTION ==========
 (async () => {
   try {
-    Logger.info(`Starting bridge bot (${CONFIG.TOTAL_TX} tx target)`);
-    
-    const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
-    const wallet = new ethers.Wallet('0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52', provider);
-    const nonceManager = new NonceManager(wallet);
+    Logger.info(`Starting bridge bot with ${CONFIG.PRIVATE_KEYS.length} wallets`);
     const bridgeManager = new BridgeManager();
-    const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);
+    let remainingTx = CONFIG.TOTAL_TX;
     
-    const totalBatches = Math.ceil(CONFIG.TOTAL_TX / CONFIG.BATCH_SIZE);
-    let totalTxCount = 0;
-    
-    for (let batch = 1; batch <= totalBatches; batch++) {
-      const remainingTx = CONFIG.TOTAL_TX - (bridgeManager.completedTx + bridgeManager.failedTx);
-      if (remainingTx <= 0) break;
+    while (remainingTx > 0) {
+      const batchSize = Math.min(CONFIG.BATCH_SIZE, remainingTx);
+      Logger.info(`Processing batch (${batchSize} tx), Remaining: ${remainingTx}`);
       
-      const currentBatchSize = Math.min(CONFIG.BATCH_SIZE, remainingTx);
+      await bridgeManager.processBatch(batchSize);
+      remainingTx -= batchSize;
       
-      Logger.info(`\nProcessing batch ${batch}/${totalBatches} (${currentBatchSize} tx)`);
-      await bridgeManager.processBatch(wallet, nonceManager, currentBatchSize, amount, totalTxCount);
-      totalTxCount += currentBatchSize;
-      
-      const progress = ((bridgeManager.completedTx + bridgeManager.failedTx) / CONFIG.TOTAL_TX * 100).toFixed(1);
-      Logger.info(`Progress: ${progress}% | Success: ${bridgeManager.completedTx} | Failed: ${bridgeManager.failedTx}`);
-      
-      if (batch < totalBatches) {
-        Logger.info(`Waiting ${CONFIG.DELAY_BETWEEN_BATCHES}ms before next batch...`);
+      if (remainingTx > 0) {
         await Utils.delay(CONFIG.DELAY_BETWEEN_BATCHES);
       }
     }
     
     Logger.success(`\nBridge process completed!`);
-    Logger.success(`Total transactions: ${CONFIG.TOTAL_TX}`);
-    Logger.success(`Successful: ${bridgeManager.completedTx}`);
-    Logger.success(`Failed: ${bridgeManager.failedTx}`);
+    Logger.success(`Total: ${CONFIG.TOTAL_TX} | Success: ${bridgeManager.completedTx} | Failed: ${bridgeManager.failedTx}`);
   } catch (error) {
     Logger.error(`Fatal error: ${error.message}`);
     process.exit(1);
