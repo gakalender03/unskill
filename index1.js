@@ -13,8 +13,8 @@ const CONFIG = {
 // ========== PRIVATE KEYS (Replace with yours) ==========
 const PRIVATE_KEYS = [
   '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52', // Wallet 1 (0x1D90...)
-  '0x1234...', // Wallet 2
-  '0xabcd...', // Wallet 3
+  '0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', // Wallet 2
+//  '0xabcd...', // Wallet 3
   // Add more private keys...
 ];
 
