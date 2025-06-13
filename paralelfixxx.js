@@ -141,12 +141,28 @@ class BridgeManager {
       const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
       const salt = ethers.hexlify(ethers.randomBytes(32));
       
-      // Updated instruction with new address
-      const instruction = [
-        0,
-        2,
-        "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000000"
-      ];
+      // === Begin ABI ENCODING Injection ===
+      const instructionType = 0;
+      const instructionVersion = 2;
+
+      // Dynamic values (assuming some static examples for illustration)
+      const userAddress = wallet.address;  // dynamic wallet address
+      const contractAddress = CONFIG.CONTRACT_ADDRESS;
+      const destinationAddress = ethers.getAddress("0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+      const tokenAmount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);  // Token amount to bridge
+      const string1 = "SEI";
+      const string2 = "Sei";
+
+      // Encode inner instruction payload
+      const innerPayload = ethers.utils.defaultAbiCoder.encode(
+        ["address", "address", "address", "uint256", "string", "string"],
+        [userAddress, contractAddress, destinationAddress, tokenAmount, string1, string2]
+      );
+
+      // Outer structure
+      const outerInstruction = [instructionType, instructionVersion, innerPayload];
+
+      // === End ABI ENCODING Injection ===
 
       const iface = new ethers.Interface([
         "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
@@ -157,7 +173,7 @@ class BridgeManager {
         timeoutHeight,
         timeoutTimestamp,
         salt,
-        instruction
+        outerInstruction
       ]);
 
       const result = await TransactionManager.sendTransaction(
