@@ -198,6 +198,9 @@ class BridgeManager {
         BridgeManager.buildDynamicInstructionHex(walletAddress)
       ];
 
+      // Log the instruction for debugging
+      Logger.info(`Instruction: ${instruction[2]}`);
+
       const iface = new ethers.Interface([
         "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
       ]);
