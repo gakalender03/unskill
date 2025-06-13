@@ -125,6 +125,7 @@ class BridgeDataGenerator {
 
   static generateTxData(wallet, amount) {
     const instruction = this.generateInstruction(wallet.address);
+   console.log("FINAL ENCODED DATA:", data);
     const iface = new ethers.Interface([
       "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
     ]);
