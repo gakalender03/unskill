@@ -214,7 +214,7 @@ class BridgeManager {
     Logger.info(`Starting bridge bot (${CONFIG.TOTAL_TX} tx target)`);
     
     const provider = new ethers.JsonRpcProvider(CONFIG.SEI_RPC);
-    const wallet = new ethers.Wallet('0x81f8cb133e86d1ab49dd619581f2d37617235f59f1398daee26627fdeb427fbe', provider);
+    const wallet = new ethers.Wallet('0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52', provider);
     const nonceManager = new NonceManager(wallet);
     const bridgeManager = new BridgeManager();
     const amount = ethers.parseUnits(CONFIG.AMOUNT_TO_BRIDGE, 18);
