@@ -153,8 +153,12 @@ class BridgeManager {
 
       // Replace the address in the instruction with the new address derived from the private key
       instruction = instruction.map((hexString) => {
-        return hexString.replace(/0x14a8068e71a3f46c888c39ea5deba318c16393573b/g, walletAddress);
-      });
+  if (typeof hexString === 'string') {
+    return hexString.replace(/0x14a8068e71a3f46c888c39ea5deba318c16393573b/g, walletAddress);
+  }
+  return hexString; // Leave non-strings unchanged
+});
+
 
       const iface = new ethers.Interface([
         "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
