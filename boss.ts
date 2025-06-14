@@ -3,8 +3,8 @@ import { privateKeyToAccount } from "viem/accounts";
 
 // Chain IDs (use these for correct network reference)
 export const CHAINS = {
-  SEI: "sei.1328",  // Sei Chain ID
-  CORN: "corn.21000001",  // Corne Chain ID
+  SEI: 1328,  // Sei Chain ID
+  CORN: 21000001,  // Corne Chain ID
 };
 
 // RPC URLs (use these for connecting to the respective blockchains)
