@@ -19,10 +19,9 @@ jobs:
           node-version: '20.19.2'
 
       - name: Install dependencies
-        run: npm install typescript ts-node @unionlabs/client viem @types/node
-             npm install @unionlabs/client@latest
+        run: npm install 
              
 
       - name: Run index.js script
         
-        run: npx ts-node boss.ts
+        run: node boss.js
