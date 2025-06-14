@@ -24,30 +24,29 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   const salt = ethers.utils.hexlify(randomBytes(32));
 
   // Construct the IBC transfer payload
-  const payload = {
-    sender: sender,
-    receiver: receiver,
-    amount: ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH).toString(),
-    denom: "", // Empty for ETH
-    memo: "", // Empty memo
-  };
+  const payload = ethers.utils.defaultAbiCoder.encode(
+    [
+      "tuple(address sender, address receiver, uint256 amount, string denom, string memo)"
+    ],
+    [{
+      sender: sender,
+      receiver: receiver,
+      amount: ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH),
+      denom: "", // Empty for ETH
+      memo: "", // Empty memo
+    }]
+  );
 
-  // Create the instruction
-  const instruction = {
-    type: 0, // IBC type
-    subtype: 2, // Transfer subtype
-    payload: ethers.utils.defaultAbiCoder.encode(
-      [
-        "tuple(address sender, address receiver, uint256 amount, string denom, string memo)",
-      ],
-      [payload]
-    ),
-  };
+  // Create the instruction (as a properly structured tuple)
+  const instruction = [
+    0, // type (uint8)
+    2, // subtype (uint8)
+    payload // bytes
+  ];
 
   // ABI for the bridge contract
   const iface = new ethers.utils.Interface([
-    "function sendToCosmos(string calldata destination, address token, uint256 amount)",
-    "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) calldata instruction)",
+    "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)"
   ]);
 
   // Encode the transaction
@@ -56,11 +55,12 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     timeoutHeight,
     timeoutTimestamp,
     salt,
-    instruction,
+    instruction
   ]);
 
   return data;
 }
+
 
 // ================== TRANSACTION EXECUTOR ==================
 async function sendFixedAmountIBCTransfer() {
