@@ -13,7 +13,7 @@ const UNION_CONTRACT = {
 };
 
 const GAS_SETTINGS = {
-  gasPrice: ethers.utils.parseUnits("1.2", "gwei"),
+  gasPrice: ethers.utils.parseUnits("1.7", "gwei"),
   gasLimit: ethers.BigNumber.from(300000),
 };
 
