@@ -57,10 +57,16 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     "0000000000000000000000000000000000000000000000000000000000000000",
     // SEI-specific footer
     "5345490000000000000000000000000000000000000000000000000000000000",
-    // Salt (now placed right after SEI footer)
+    // Salt
     salt.slice(2),
-    // Timestamp (now placed after salt)
-    toPaddedHex(timeoutTimestamp)
+    // Timestamp
+    toPaddedHex(timeoutTimestamp),
+    // Additional fields (as in the valid payload)
+    "0000000000000000000000000000000000000000000000000000000000000000", // Placeholder for additional data
+    "0000000000000000000000000000000000000000000000000000000000000000", // Placeholder for additional data
+    "0000000000000000000000000000000000000000000000000000000000000000", // Placeholder for additional data
+    "0000000000000000000000000000000000000000000000000000000000000000", // Placeholder for additional data
+    "0000000000000000000000000000000000000000000000000000000000000000", // Placeholder for additional data
   ].join('');
 
   // Validate the payloadHex
