@@ -1,14 +1,22 @@
 import {
   http,
-  createUnionClient
+  createUnionClient,
+  UnionClient
 } from "@unionlabs/client";
-import { privateKeyToAccount } from "viem/accounts";
+import { privateKeyToAccount, Account } from "viem/accounts";
+
+// Define the type for the clients array for better type inference
+interface ClientConfig {
+  chainId: string;
+  transport: any; // transport type can be more specific, but we leave it as 'any' for now
+  account: Account;
+}
 
 // Replace with your actual private key (NEVER expose private keys in production code)
 const PRIVATE_KEY = "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52";
 
 // Initialize clients for multiple chains
-const clients = createUnionClient([
+const clients: ClientConfig[] = createUnionClient([
   {
     chainId: "1328", // Sei Testnet EVM Chain ID
     transport: http("https://evm-rpc-testnet.sei-apis.com"),
@@ -22,7 +30,7 @@ const clients = createUnionClient([
 ]);
 
 // Function to check connection status of each chain
-async function checkConnections() {
+async function checkConnections(): Promise<void> {
   console.log("Checking connections to all configured chains...\n");
 
   for (const client of clients) {
@@ -37,7 +45,7 @@ async function checkConnections() {
 
       console.log(`✅ Connected to Chain ID ${chainId}. Latest block number: ${blockNumber}`);
     } catch (error) {
-      console.error(`❌ Failed to connect to Chain ID ${chainId}:`, error.message);
+      console.error(`❌ Failed to connect to Chain ID ${chainId}:`, (error as Error).message);
     }
   }
 }
