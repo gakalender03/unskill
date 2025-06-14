@@ -20,8 +20,7 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   const channelId = 2;
   const timeoutHeight = 0;
   const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
-  const salt = ethers.hexlify(randomBytes(32)); // Fixed: using crypto.randomBytes
-
+  const salt = ethers.utils.hexlify(randomBytes(32)); // ✅ Uses `utils.hexlify`
   // Construct the instruction (payloadSegments)
   const instruction = [
     // Instruction type 0 and 2
