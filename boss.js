@@ -1,126 +1,83 @@
 const { ethers } = require('ethers');
-const { randomBytes } = require('crypto');
 
 const CONFIG = {
   RPC_URL: 'https://evm-rpc-testnet.sei-apis.com',
   CHAIN_ID: 1328,
   BRIDGE_CONTRACT: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
   TEST_PRIVATE_KEY: '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52',
-  FIXED_AMOUNT_ETH: '0.000001',
   GAS_LIMIT: 300000,
 };
 
-function generateIBCCallData(senderAddress, recipientAddress) {
-  const sender = ethers.utils.getAddress(senderAddress);
-  const receiver = ethers.utils.getAddress(recipientAddress);
-
-  // Constants for IBC call
-  const channelId = 2;
-  const timeoutHeight = 0;
-  const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000); // Nanoseconds
-  const salt = ethers.utils.hexlify(randomBytes(32));
-
-  // Helper to pad hex values (32 bytes by default)
-  const toPaddedHex = (value, bytes = 32) => {
-    return ethers.utils.hexZeroPad(ethers.utils.hexlify(value), bytes).slice(2);
-  };
-
-  // Construct payload matching the exact structure from the example
-  const payloadHex = [
-    // Header (dynamic array offset)
-    "0000000000000000000000000000000000000000000000000000000000000020",
-    // Instruction type (1 = IBC transfer)
-    "0000000000000000000000000000000000000000000000000000000000000001",
-    // Dynamic offset for payload
-    "0000000000000000000000000000000000000000000000000000000000000020",
-    // Core parameters (1 field)
-    "0000000000000000000000000000000000000000000000000000000000000001",
-    // Offset to parameters (0x60)
-    "0000000000000000000000000000000000000000000000000000000000000060",
-    // Parameters section (3 fields)
-    "0000000000000000000000000000000000000000000000000000000000000003",
-    // Offset to sender (0x180)
-    "0000000000000000000000000000000000000000000000000000000000000180",
-    // Offset to receiver (0x1c0)
-    "00000000000000000000000000000000000000000000000000000000000001c0",
-    // Offset to SEI footer (0x240)
-    "0000000000000000000000000000000000000000000000000000000000000240",
-    // Amount (0.000001 ETH in wei)
-    "00000000000000000000000000000000000000000000000000000000e8d4a510",
-    // Denom (2 = ETH)
-    "0000000000000000000000000000000000000000000000000000000000000002",
-    // Memo (empty)
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    // Sender address
-    toPaddedHex(sender),
-    // Receiver address
-    toPaddedHex(receiver),
-    // SEI footer
-    "5345690000000000000000000000000000000000000000000000000000000000",
-    // Salt
-    salt.slice(2),
-    // Timestamp (nanoseconds)
-    toPaddedHex(timeoutTimestamp),
-    // Additional padding (matches example structure)
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "0000000000000000000000000000000000000000000000000000000000000000",
-  ].join('');
-
-  // Validate payload
-  if (!ethers.utils.isHexString('0x' + payloadHex)) {
-    throw new Error('Invalid payload hex');
-  }
+function generateStaticIBCCallData() {
+  // This is the EXACT payload from your example (no dynamic generation)
+  const staticPayload = 
+    '0000000000000000000000000000000000000000000000000000000000000020' + // Header
+    '0000000000000000000000000000000000000000000000000000000000000001' + // Instruction type
+    '0000000000000000000000000000000000000000000000000000000000000020' + // Payload offset
+    '0000000000000000000000000000000000000000000000000000000000000001' + // Core params count
+    '0000000000000000000000000000000000000000000000000000000000000060' + // Params offset
+    '0000000000000000000000000000000000000000000000000000000000000003' + // Fields count
+    '0000000000000000000000000000000000000000000000000000000000000180' + // Sender offset
+    '00000000000000000000000000000000000000000000000000000000000001c0' + // Receiver offset
+    '0000000000000000000000000000000000000000000000000000000000000240' + // SEI footer offset
+    '00000000000000000000000000000000000000000000000000000000e8d4a510' + // Amount (0.000001 ETH)
+    '0000000000000000000000000000000000000000000000000000000000000002' + // Denom (2 = ETH)
+    '0000000000000000000000000000000000000000000000000000000000000000' + // Memo
+    '00000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b' + // Sender
+    '00000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b' + // Receiver
+    '00000000000000000000000014eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' + // ??
+    '0000000000000000000000000000000000000000000000000000000000000000' + // ??
+    '0000000000000000000000000000000000000000000000000000000000000000' + // ??
+    '0000000000000000000000000000000000000000000000000000000000000353' + // SEI marker pt1
+    '4549000000000000000000000000000000000000000000000000000000000000' + // SEI marker pt2
+    '0000000000000000000000000000000000000000000000000000000000000353' + // SEI marker pt3
+    '6569000000000000000000000000000000000000000000000000000000000000' + // SEI marker pt4
+    '00000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8'; // Salt (static)
 
   // Instruction format: [type, subtype, payload]
-  const instruction = [0, 2, '0x' + payloadHex];
+  const instruction = [0, 2, '0x' + staticPayload];
 
   // ABI for bridge contract
   const iface = new ethers.utils.Interface([
     "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)",
   ]);
 
-  // Encode transaction data
+  // Static parameters matching the example
   return iface.encodeFunctionData("send", [
-    channelId,
-    timeoutHeight,
-    timeoutTimestamp,
-    salt,
-    instruction,
+    2, // channelId
+    0, // timeoutHeight
+    0, // timeoutTimestamp (will be overwritten anyway)
+    '0xe86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000', // static salt
+    instruction
   ]);
 }
-
 
 async function sendFixedAmountIBCTransfer() {
   try {
     const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
     const wallet = new ethers.Wallet(CONFIG.TEST_PRIVATE_KEY, provider);
 
-    const senderAddress = await wallet.getAddress();
-    const data = generateIBCCallData(senderAddress, senderAddress);
+    const data = generateStaticIBCCallData();
 
     const txRequest = {
       to: CONFIG.BRIDGE_CONTRACT,
       data: data,
-      value: ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH),
+      value: ethers.utils.parseEther("0.000001"), // Must match static amount
       chainId: CONFIG.CHAIN_ID,
       gasLimit: CONFIG.GAS_LIMIT,
     };
 
-    // Set competitive gas fees
+    // Set gas fees (can keep dynamic for better UX)
     const feeData = await provider.getFeeData();
     txRequest.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas?.mul(2) || ethers.utils.parseUnits("2", "gwei");
     txRequest.maxFeePerGas = feeData.maxFeePerGas?.mul(2) || ethers.utils.parseUnits("30", "gwei");
 
-    console.log(`🔄 Sending ${CONFIG.FIXED_AMOUNT_ETH} ETH via IBC...`);
+    console.log("🔄 Sending 0.000001 ETH via IBC (static payload)...");
     const tx = await wallet.sendTransaction(txRequest);
 
     console.log("✅ Transaction submitted:", {
       hash: tx.hash,
       explorer: `https://testnet.seiscan.app/tx/${tx.hash}`,
-      data: data,
     });
 
     return tx.hash;
