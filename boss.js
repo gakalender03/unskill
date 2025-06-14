@@ -75,7 +75,7 @@ async function executeTransaction(contract, method, args, overrides, operationNa
 
 // ================== DYNAMIC IBC PARAMS ==================
 
-function generateValidIBCParams(senderAddress, recipientAddress) {
+function generateIBCParams(senderAddress, recipientAddress) {
   // Timestamp in nanoseconds (BigInt)
   const timeoutTimestamp = BigInt(Date.now()) * 1_000_000n;
 
