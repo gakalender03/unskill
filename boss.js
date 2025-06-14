@@ -137,7 +137,7 @@ async function bridgeETH({
       bridge,
       'send',
       [
-        2, // channelId (example value, adjust as needed)
+        1, // channelId (example value, adjust as needed)
         0, // timeoutHeight (example value)
         Math.floor(Date.now() / 1000) + 3600, // timeoutTimestamp (1 hour from now)
         salt, // random salt
