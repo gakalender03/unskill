@@ -74,7 +74,6 @@ async function executeTransaction(contract, method, args, overrides, operationNa
 }
 
 // ================== DYNAMIC IBC PARAMS ==================
-
 function generateIBCParams(senderAddress, recipientAddress) {
   // Timestamp in nanoseconds (BigInt)
   const timeoutTimestamp = BigInt(Date.now()) * 1_000_000n;
@@ -106,6 +105,11 @@ function generateIBCParams(senderAddress, recipientAddress) {
     .replace('{{SENDER}}', formattedSender.padEnd(64, '0'))
     .replace('{{RECIPIENT}}', formattedRecipient.padEnd(64, '0'));
 
+  // Verify that the payload has an even length
+  if (payload.length % 2 !== 0) {
+    throw new Error(`Generated payload has odd length: ${payload.length}`);
+  }
+
   return {
     channelId: 2,
     timeoutHeight: 0,
@@ -126,6 +130,7 @@ const validParams = generateIBCParams(
 );
 
 console.log(validParams.instruction.payload);
+
 
 // ================== MAIN BRIDGE FUNCTION ==================
 async function bridgeETH({
