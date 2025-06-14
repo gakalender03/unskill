@@ -18,14 +18,14 @@ const PRIVATE_KEY = "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b187
 
 // Create UnionLabs client for Sei
 export const seiClient = createUnionClient({
-  chainId: CHAINS.SEI,  // Use the Sei chain ID from the CHAINS object
+  chainId: SEI,  // Use the Sei chain ID from the CHAINS object
   account: privateKeyToAccount(PRIVATE_KEY),
   transport: http(RPC_URLS.SEI),  // Use the Sei RPC URL from the RPC_URLS object
 });
 
 // Create UnionLabs client for Corne
 export const corneClient = createUnionClient({
-  chainId: CHAINS.CORN,  // Use the Corne chain ID from the CHAINS object
+  chainId: CORN,  // Use the Corne chain ID from the CHAINS object
   account: privateKeyToAccount(PRIVATE_KEY),
   transport: http(RPC_URLS.CORN),  // Use the Corne RPC URL from the RPC_URLS object
 });
