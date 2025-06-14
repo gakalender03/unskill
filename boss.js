@@ -14,7 +14,7 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   const sender = ethers.utils.getAddress(senderAddress);
   const receiver = ethers.utils.getAddress(recipientAddress);
 
-  // Constants for IBC call (matches valid tx)
+  // Constants for IBC call
   const channelId = 2;
   const timeoutHeight = 0;
   const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000); // Nanoseconds
@@ -25,7 +25,7 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     return ethers.utils.hexZeroPad(ethers.utils.hexlify(value), bytes).slice(2);
   };
 
-  // Construct payload (EXACTLY matches valid tx structure)
+  // Construct payload matching the exact structure from the example
   const payloadHex = [
     // Header (dynamic array offset)
     "0000000000000000000000000000000000000000000000000000000000000020",
@@ -33,31 +33,35 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     "0000000000000000000000000000000000000000000000000000000000000001",
     // Dynamic offset for payload
     "0000000000000000000000000000000000000000000000000000000000000020",
-    // Core parameters (3 fields)
-    "0000000000000000000000000000000000000000000000000000000000000003",
-    // Offset to sender (0x60)
+    // Core parameters (1 field)
+    "0000000000000000000000000000000000000000000000000000000000000001",
+    // Offset to parameters (0x60)
     "0000000000000000000000000000000000000000000000000000000000000060",
-    // Offset to receiver (0x2c0)
-    "00000000000000000000000000000000000000000000000000000000000002c0",
-    // Offset to SEI footer (0x140)
-    "0000000000000000000000000000000000000000000000000000000000000140",
+    // Parameters section (3 fields)
+    "0000000000000000000000000000000000000000000000000000000000000003",
+    // Offset to sender (0x180)
+    "0000000000000000000000000000000000000000000000000000000000000180",
+    // Offset to receiver (0x1c0)
+    "00000000000000000000000000000000000000000000000000000000000001c0",
+    // Offset to SEI footer (0x240)
+    "0000000000000000000000000000000000000000000000000000000000000240",
+    // Amount (0.000001 ETH in wei)
+    "00000000000000000000000000000000000000000000000000000000e8d4a510",
+    // Denom (2 = ETH)
+    "0000000000000000000000000000000000000000000000000000000000000002",
+    // Memo (empty)
+    "0000000000000000000000000000000000000000000000000000000000000000",
     // Sender address
     toPaddedHex(sender),
     // Receiver address
     toPaddedHex(receiver),
-    // Amount (0.000001 ETH in wei)
-    toPaddedHex(ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH)),
-    // Denom (empty for ETH)
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    // Memo (empty)
-    "0000000000000000000000000000000000000000000000000000000000000000",
     // SEI footer
-    "5345490000000000000000000000000000000000000000000000000000000000",
+    "5345690000000000000000000000000000000000000000000000000000000000",
     // Salt
     salt.slice(2),
     // Timestamp (nanoseconds)
     toPaddedHex(timeoutTimestamp),
-    // Additional padding (matches valid tx)
+    // Additional padding (matches example structure)
     "0000000000000000000000000000000000000000000000000000000000000000",
     "0000000000000000000000000000000000000000000000000000000000000000",
     "0000000000000000000000000000000000000000000000000000000000000000",
@@ -87,6 +91,7 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     instruction,
   ]);
 }
+
 
 async function sendFixedAmountIBCTransfer() {
   try {
