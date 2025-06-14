@@ -32,7 +32,8 @@ function generateStaticIBCCallData() {
     '4549000000000000000000000000000000000000000000000000000000000000' + // SEI marker pt2
     '0000000000000000000000000000000000000000000000000000000000000353' + // SEI marker pt3
     '6569000000000000000000000000000000000000000000000000000000000000' + // SEI marker pt4
-    '00000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8'; // Salt (static)
+    '00000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8' + // Salt (static)
+    '0000000000000000000000000000000000000000000000001847b9e8b9b00000'; // timeoutTimestamp (1749901592280000000)
 
   // Instruction format: [type, subtype, payload]
   const instruction = [0, 2, '0x' + staticPayload];
@@ -46,7 +47,7 @@ function generateStaticIBCCallData() {
   return iface.encodeFunctionData("send", [
     2, // channelId
     0, // timeoutHeight
-    0, // timeoutTimestamp (will be overwritten anyway)
+    '1749901592280000000', // timeoutTimestamp (static value)
     '0xe86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000', // static salt
     instruction
   ]);
