@@ -30,7 +30,7 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   };
 
   // Construct the payload parts
-  const parts = [
+  const payloadHex = [
     // Header (dynamic array offset)
     "0000000000000000000000000000000000000000000000000000000000000020",
     // Instruction type (1 = IBC transfer)
@@ -57,14 +57,13 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     "0000000000000000000000000000000000000000000000000000000000000000",
     // SEI-specific footer
     "5345490000000000000000000000000000000000000000000000000000000000",
-    // Timestamp
-    toPaddedHex(timeoutTimestamp),
-    // Salt
-    salt.slice(2)
-  ];
+    // Salt (now placed right after SEI footer)
+    salt.slice(2),
+    // Timestamp (now placed after salt)
+    toPaddedHex(timeoutTimestamp)
+  ].join('');
 
-  // Combine all parts and validate
-  const payloadHex = parts.join('');
+  // Validate the payloadHex
   if (!ethers.utils.isHexString('0x' + payloadHex)) {
     throw new Error('Generated payload is not a valid hex string');
   }
