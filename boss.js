@@ -1,4 +1,4 @@
-const { ethers, utils } = require('ethers');
+const { ethers } = require('ethers');
 
 // ================== CONFIGURATION ==================
 const CHAINS = {
@@ -12,8 +12,8 @@ const RPC_URLS = {
 };
 
 const UNION_CONTRACT = {
-  SEI: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
-  CORN: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03'
+  SEI: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',  // REPLACE WITH ACTUAL CONTRACT
+  CORN: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03' // REPLACE WITH ACTUAL CONTRACT
 };
 
 // Hardcoded test settings
@@ -48,6 +48,7 @@ async function getProvider(chainId) {
         name: chainId.toLowerCase()
       });
 
+      // Test connection
       await provider.getBlockNumber();
       providerCache.set(chainId, provider);
       debugLog(`Connected to RPC`, { url, chainId });
@@ -111,37 +112,20 @@ async function bridgeETH({
     const bridgeAddress = UNION_CONTRACT[sourceChain];
     if (!bridgeAddress) throw new Error(`No bridge contract on ${sourceChain}`);
 
-    // Create contract instance with the correct ABI
+    // Create contract instance
     const bridge = new ethers.Contract(
       bridgeAddress,
-      [
-        'function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, tuple(uint8,uint8,bytes) instruction) payable'
-      ],
+      ['function depositNative(uint256 destChainId, address recipient) payable'],
       wallet
     );
 
-    // Prepare the instruction tuple
-    const instruction = {
-      // These values should be adjusted based on the actual bridge requirements
-      // Format: (uint8 sourceChainId, uint8 destChainId, bytes recipient)
-      0: CHAINS[sourceChain],  // sourceChainId (converted to uint8)
-      1: CHAINS[destChain],    // destChainId (converted to uint8)
-      2: ethers.utils.hexZeroPad(recipientAddress, 32) // recipient address as bytes
-    };
-
-    // Generate a random salt
-    const salt = ethers.utils.randomBytes(32);
-
-    // Execute bridge transfer with the correct function signature
+    // Execute bridge transfer
     const tx = await executeTransaction(
       bridge,
-      'send',
+      'depositNative',
       [
-        1, // channelId (example value, adjust as needed)
-        0, // timeoutHeight (example value)
-        Math.floor(Date.now() / 1000) + 3600, // timeoutTimestamp (1 hour from now)
-        salt, // random salt
-        instruction // the instruction tuple
+        CHAINS[destChain],   // destination chain ID
+        recipientAddress     // recipient address
       ],
       {
         value: ethers.utils.parseEther(amount.toString()),
@@ -150,13 +134,7 @@ async function bridgeETH({
       'ETH Bridge Transfer'
     );
 
-    return {
-      txHash: tx.hash,
-      channelId: 1,
-      timeoutHeight: 0,
-      timeoutTimestamp: Math.floor(Date.now() / 1000) + 3600,
-      salt: salt
-    };
+    return tx.hash;
 
   } catch (error) {
     debugLog("Bridge failed", {
@@ -172,20 +150,15 @@ async function bridgeETH({
   try {
     console.log("🚀 Starting ETH bridge from SEI to CORN");
     
-    const result = await bridgeETH({
+    const txHash = await bridgeETH({
       sourceChain: 'SEI',
       destChain: 'CORN',
       amount: '0.000001', // 0.000001 ETH
       privateKey: TEST_PRIVATE_KEY
     });
 
-    console.log("✅ Bridge successful! TX Hash:", result.txHash);
+    console.log("✅ Bridge successful! TX Hash:", txHash);
     console.log("⏳ Check the blockchain explorer for confirmation");
-    console.log("Additional details:", {
-      channelId: result.channelId,
-      timeoutTimestamp: result.timeoutTimestamp,
-      salt: ethers.utils.hexlify(result.salt)
-    });
 
   } catch (error) {
     console.error("❌ Bridge failed:", error.message);
