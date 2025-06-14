@@ -1,43 +1,45 @@
-import { http, createUnionClient } from "@unionlabs/client";
+import { createUnionClient, http } from "@unionlabs/client";
 import { privateKeyToAccount } from "viem/accounts";
 
-// Replace with your actual private key (NEVER expose private keys in production code)
-const PRIVATE_KEY = "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52";
+// Ensure your PRIVATE_KEY is set in the environment
+const PRIVATE_KEY = process.env["0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52"];
+if (!PRIVATE_KEY) throw new Error("PRIVATE_KEY is not set");
 
-// Initialize clients for multiple chains with proper EvmClientParameters
-const clients = createUnionClient([
-  {
-    chainId: "1328", // Sei Testnet EVM Chain ID
-    transport: http("https://evm-rpc-testnet.sei-apis.com"),
-    account: privateKeyToAccount(PRIVATE_KEY),  // Ensure account is correctly typed
-  },
-  {
-    chainId: "21000001", // Corn Testnet EVM Chain ID
-    transport: http("https://testnet.corn-rpc.com"),
-    account: privateKeyToAccount(PRIVATE_KEY),  // Ensure account is correctly typed
-  }
-]);
+// Create the UnionLabs client for Sei (using the provided RPC URL)
+export const seiClient = createUnionClient({
+  chainId: "sei.1328",  // Replace with the actual Sei chain ID
+  account: privateKeyToAccount(`0x${PRIVATE_KEY}`),
+  transport: http("https://evm-rpc-testnet.sei-apis.com"),  // Sei Testnet RPC URL
+});
 
-// Function to check connection status of each chain
-async function checkConnections(): Promise<void> {
-  console.log("Checking connections to all configured chains...\n");
+// Create the UnionLabs client for Corne (using the provided RPC URL)
+export const corneClient = createUnionClient({
+  chainId: "corn.21000001",  // Replace with the actual Corne chain ID
+  account: privateKeyToAccount(`0x${PRIVATE_KEY}`),
+  transport: http("https://testnet.corn-rpc.com"),  // Corne Testnet RPC URL
+});
 
-  for (const client of clients) {
-    const { chainId, transport } = client;
+// Define transfer payload
+const transferPayload = {
+  amount: 0.000001 * 1e18,  // Convert ETH to Wei (1 ETH = 10^18 Wei)
+  autoApprove: false,  // Manual approval
+  destinationChainId: "corne-vm-chain-id",  // Target chain (Corne)
+  receiver: "0x1D903e72F84d24B8544D58c0786370Cf08a35790",  // Replace with the actual receiver address on Corne
+  denomAddress: "0xSeiTokenContractAddress",  // Token contract address for Sei (if applicable)
+};
 
-    try {
-      // Send a basic request to get the latest block number
-      const latestBlock = await transport.request({ method: "eth_blockNumber", params: [] });
-
-      // Convert hex to decimal
-      const blockNumber = parseInt(latestBlock, 16);
-
-      console.log(`✅ Connected to Chain ID ${chainId}. Latest block number: ${blockNumber}`);
-    } catch (error) {
-      console.error(`❌ Failed to connect to Chain ID ${chainId}:`, (error as Error).message);
-    }
-  }
+// Step 1: Approve the transaction on Sei
+const approval = await seiClient.approveTransaction(transferPayload);
+if (approval.isErr()) {
+  console.error("Approval failed:", approval.error);
+  process.exit(1);
 }
+console.info(`Approval successful! Approval hash: ${approval.value}`);
 
-console.log("Clients initialized.");
-checkConnections();
+// Step 2: Transfer the asset from Sei to Corne
+const transfer = await seiClient.transferAsset(transferPayload);
+if (transfer.isErr()) {
+  console.error("Transfer failed:", transfer.error);
+  process.exit(1);
+}
+console.info(`Transfer successful! Transfer hash: ${transfer.value}`);
