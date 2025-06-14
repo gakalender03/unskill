@@ -12,6 +12,7 @@ const CONFIG = {
 };
 
 // ================== IBC PAYLOAD GENERATOR ==================
+
 function generateIBCCallData(senderAddress, recipientAddress) {
   const sender = ethers.utils.getAddress(senderAddress);
   const receiver = ethers.utils.getAddress(recipientAddress);
@@ -78,7 +79,6 @@ function generateIBCCallData(senderAddress, recipientAddress) {
 
   return data;
 }
-
 
 
 // ================== TRANSACTION EXECUTOR ==================
