@@ -18,9 +18,8 @@ const UNION_CONTRACT = {
 
 // Hardcoded test settings
 const GAS_SETTINGS = {
-  maxFeePerGas: ethers.parseUnits("1.2", "gwei"),
-  maxPriorityFeePerGas: ethers.parseUnits("1.2", "gwei"),
-  gasLimit: 300000
+  gasPrice: ethers.utils.parseUnits("1.2", "gwei"),
+  gasLimit: ethers.BigNumber.from(300000)
 };
 
 const TEST_PRIVATE_KEY = "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52";
@@ -45,7 +44,7 @@ async function getProvider(chainId) {
 
     try {
       const provider = new ethers.providers.JsonRpcProvider(url, {
-        chainId: Number(CHAINS[chainId]),
+        chainId: CHAINS[chainId],
         name: chainId.toLowerCase()
       });
 
@@ -67,7 +66,7 @@ async function executeTransaction(contract, method, args, overrides, operationNa
   debugLog("Transaction sent", {
     operation: operationName,
     hash: txResponse.hash,
-    gasLimit: overrides.gasLimit
+    gasLimit: overrides.gasLimit.toString()
   });
 
   const receipt = await txResponse.wait();
@@ -116,7 +115,7 @@ async function bridgeETH({
     // Create contract instance
     const bridge = new ethers.Contract(
       bridgeAddress,
-      ['function depositNative(uint16 destChainId, address recipient) payable'],
+      ['function depositNative(uint256 destChainId, address recipient) payable'],
       wallet
     );
 
