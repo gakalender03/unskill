@@ -1,10 +1,7 @@
 const { ethers } = require('ethers');
 
 // ================== CONFIGURATION ==================
-const CHAINS = {
-  SEI: 1328,
-  CORN: 21000001,
-};
+
 
 const RPC_URLS = {
   SEI: 'https://evm-rpc-testnet.sei-apis.com',
