@@ -23,15 +23,14 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
   const salt = ethers.utils.hexlify(randomBytes(32));
 
-  // Ensure all values are properly padded to 32 bytes
-  const senderPadded = ethers.utils.hexZeroPad(sender, 32).slice(2);
-  const receiverPadded = ethers.utils.hexZeroPad(receiver, 32).slice(2);
-  const amountPadded = ethers.utils.hexZeroPad(ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH).toHexString(), 32).slice(2);
-  const timeoutTimestampPadded = ethers.utils.hexZeroPad(timeoutTimestamp.toString(16), 32).slice(2);
-  const saltPadded = salt.slice(2);
+  // Helper function to ensure proper hex padding
+  const toPaddedHex = (value, bytes = 32) => {
+    const hex = ethers.utils.hexlify(value);
+    return ethers.utils.hexZeroPad(hex, bytes).slice(2);
+  };
 
-  // Construct the payload as raw hex (matching the valid tx)
-  const payloadHex = [
+  // Construct the payload parts
+  const parts = [
     // Header (dynamic array offset)
     "0000000000000000000000000000000000000000000000000000000000000020",
     // Instruction type (1 = IBC transfer)
@@ -46,33 +45,35 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     "00000000000000000000000000000000000000000000000000000000000002c0",
     // Offset to SEI footer (0x140 = 320 bytes)
     "0000000000000000000000000000000000000000000000000000000000000140",
-    // Sender address (padded to 32 bytes)
-    senderPadded,
-    // Receiver address (padded to 32 bytes)
-    receiverPadded,
+    // Sender address
+    toPaddedHex(sender),
+    // Receiver address
+    toPaddedHex(receiver),
     // Amount (0.000001 ETH in wei)
-    amountPadded,
+    toPaddedHex(ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH)),
     // Denom (empty for ETH)
     "0000000000000000000000000000000000000000000000000000000000000000",
     // Memo (empty)
     "0000000000000000000000000000000000000000000000000000000000000000",
-    // SEI-specific footer (chain identifier)
+    // SEI-specific footer
     "5345490000000000000000000000000000000000000000000000000000000000",
-    // Timestamp and salt (must match timeoutTimestamp)
-    timeoutTimestampPadded,
-    saltPadded, // Remove '0x' prefix
-  ].join('');
+    // Timestamp
+    toPaddedHex(timeoutTimestamp),
+    // Salt
+    salt.slice(2)
+  ];
 
-  // Validate the payloadHex is a valid hex string
-  if (!ethers.utils.isHexString("0x" + payloadHex)) {
-    throw new Error("Invalid payloadHex generated");
+  // Combine all parts and validate
+  const payloadHex = parts.join('');
+  if (!ethers.utils.isHexString('0x' + payloadHex)) {
+    throw new Error('Generated payload is not a valid hex string');
   }
 
   // Instruction format: [type, subtype, payload]
   const instruction = [
     0, // Type 0 (IBC)
     2, // Subtype 2 (transfer)
-    "0x" + payloadHex, // Raw hex payload
+    '0x' + payloadHex
   ];
 
   // ABI for the bridge contract
@@ -95,15 +96,12 @@ function generateIBCCallData(senderAddress, recipientAddress) {
 // ================== TRANSACTION EXECUTOR ==================
 async function sendFixedAmountIBCTransfer() {
   try {
-    // 1. Initialize provider and wallet
     const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
     const wallet = new ethers.Wallet(CONFIG.TEST_PRIVATE_KEY, provider);
 
-    // 2. Generate payload (sending to self in this example)
     const senderAddress = await wallet.getAddress();
     const payload = generateIBCCallData(senderAddress, senderAddress);
 
-    // 3. Prepare transaction (with gas optimization)
     const txRequest = {
       to: CONFIG.BRIDGE_CONTRACT,
       data: payload,
@@ -112,12 +110,10 @@ async function sendFixedAmountIBCTransfer() {
       gasLimit: CONFIG.GAS_LIMIT,
     };
 
-    // 4. Dynamic gas pricing (EIP-1559)
     const feeData = await provider.getFeeData();
     txRequest.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas?.mul(2) || ethers.utils.parseUnits("2", "gwei");
     txRequest.maxFeePerGas = feeData.maxFeePerGas?.mul(2) || ethers.utils.parseUnits("30", "gwei");
 
-    // 5. Execute transfer
     console.log(`🔄 Sending ${CONFIG.FIXED_AMOUNT_ETH} ETH via IBC...`);
     const tx = await wallet.sendTransaction(txRequest);
 
@@ -139,6 +135,6 @@ async function sendFixedAmountIBCTransfer() {
   try {
     await sendFixedAmountIBCTransfer();
   } catch (error) {
-    process.exit(1); // Exit with error code
+    process.exit(1);
   }
 })();
