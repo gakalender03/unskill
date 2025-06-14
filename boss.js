@@ -1,295 +1,104 @@
 const { ethers } = require('ethers');
-const { randomBytes } = require('crypto'); // For secure random salt
+const { randomBytes } = require('crypto');
 
 // ================== CONFIGURATION ==================
-const RPC_URLS = {
-  SEI: 'https://evm-rpc-testnet.sei-apis.com',
-  CORN: 'https://testnet.corn-rpc.com',
+const CONFIG = {
+  RPC_URL: 'https://evm-rpc-testnet.sei-apis.com',
+  CHAIN_ID: 1328,
+  BRIDGE_CONTRACT: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
+  TEST_PRIVATE_KEY: '0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52',
+  FIXED_AMOUNT_ETH: '0.000001', // Exactly 0.000001 ETH
+  GAS_LIMIT: 300000,
 };
 
-const UNION_CONTRACT = {
-  SEI: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
-  CORN: '0x5FbE74A283f7954f10AA04C2eDf55578811aeb03',
-};
-
-const GAS_SETTINGS = {
-  gasPrice: ethers.utils.parseUnits("1.7", "gwei"),
-  gasLimit: ethers.BigNumber.from(300000),
-};
-
-const TEST_PRIVATE_KEY = "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52";
-
-// ================== UTILITIES ==================
-const providerCache = new Map();
-
-function debugLog(message, data = {}) {
-  const timestamp = new Date().toISOString();
-  const safeData = {
-    ...data,
-    ...(data.value ? { value: data.value.toString() } : {}),
-    ...(data.amount ? { amount: data.amount.toString() } : {}),
-  };
-  console.log(`[${timestamp}] DEBUG: ${message}`, JSON.stringify(safeData, null, 2));
-}
-
-async function getProvider(chainName) {
-  if (!providerCache.has(chainName)) {
-    const url = RPC_URLS[chainName];
-    if (!url) throw new Error(`No RPC URL for ${chainName}`);
-
-    try {
-      const provider = new ethers.providers.JsonRpcProvider(url, {
-        chainId: chainName === 'SEI' ? 1328 : 21000001,
-        name: chainName.toLowerCase(),
-      });
-
-      await provider.getBlockNumber();
-      providerCache.set(chainName, provider);
-      debugLog(`Connected to RPC`, { url, chainName });
-      return provider;
-    } catch (error) {
-      debugLog(`RPC failed`, { url, error: error.message });
-      throw new Error(`RPC connection failed for ${chainName}`);
-    }
-  }
-  return providerCache.get(chainName);
-}
-
-async function executeTransaction(contract, method, args, overrides, operationName) {
-  const txResponse = await contract[method](...args, overrides);
-  debugLog("Transaction sent", {
-    operation: operationName,
-    hash: txResponse.hash,
-    gasLimit: overrides.gasLimit.toString(),
-  });
-
-  const receipt = await txResponse.wait();
-  debugLog("Transaction mined", {
-    status: receipt.status === 1 ? "success" : "failed",
-    gasUsed: receipt.gasUsed.toString(),
-  });
-
-  if (receipt.status !== 1) throw new Error("Transaction failed on chain");
-  return receipt;
-}
-
-// ================== DYNAMIC IBC PARAMS ==================
-/*
-
-function generateIBCParams(senderAddress, recipientAddress) {
-  // Current timestamp in nanoseconds (BigInt)
-  const timeoutTimestamp = BigInt(Date.now()) * 1_000_000n;
-
-  // Generate cryptographically secure random salt (32 bytes)
-  const salt = '0x' + randomBytes(32).toString('hex');
-
-  // Format addresses - remove any prefix and ensure lowercase
-  const formatAddress = (addr) => {
-    const cleanAddr = addr.replace(/^(0x|x)/i, '');
-    if (!/^[0-9a-f]{40}$/i.test(cleanAddr)) {
-      throw new Error(`Invalid address: ${addr}`);
-    }
-    return cleanAddr.toLowerCase();
-  };
-
-  const formattedSender = formatAddress(senderAddress);
-  const formattedReceiver = formatAddress(recipientAddress);
-
-  // Template with placeholders for addresses
-  const payloadTemplate = `0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000000{{SENDER}}00000000000000000000000000000000000000000000000000000000000000000000000000000000000000{{RECIPIENT}}00000000000000000000000000000000000000000000000000000000000000000000000000000000000000014eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000035345490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353656900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000`;
-
-  // Insert addresses and ensure even length
-  let payload = payloadTemplate
-    .replace('{{SENDER}}', formattedSender)
-    .replace('{{RECIPIENT}}', formattedReceiver);
-
-  // Final validation
-  if (payload.length % 2 !== 0) {
-    // If odd length, add a trailing zero (this should never happen with correct inputs)
-    payload += '0';
-  }
-
-  return {
-    channelId: 2,
-    timeoutHeight: 0,
-    timeoutTimestamp: timeoutTimestamp.toString(),
-    salt,
-    instruction: {
-      version: 0,
-      action: 2,
-      payload: payload,
-    },
-  };
-}
-*/
-
-
-
-function generateIBCParams(senderAddress, recipientAddress) {
-  // Validate and format addresses
-  const formatEthereumAddress = (addr) => {
-    addr = addr.replace(/^0x|^x/i, '');
-    if (!/^[0-9a-f]{40}$/i.test(addr)) {
-      throw new Error(`Invalid Ethereum address: ${addr}`);
-    }
-    return addr.toLowerCase();
-  };
-
-  const sender = formatEthereumAddress(senderAddress);
-  const receiver = formatEthereumAddress(recipientAddress);
-
-  // Construct payload using working template
-  const payloadTemplate = [
+// ================== IBC PAYLOAD GENERATOR ==================
+function generateIBCCallData(senderAddress, recipientAddress) {
+  // 1. Format addresses (checksum + validation)
+  const sender = ethers.utils.getAddress(senderAddress);
+  const receiver = ethers.utils.getAddress(recipientAddress);
+  
+  // 2. Encode addresses into 32-byte slots (right-padded)
+  const encodeForPayload = (addr) => 
+    ethers.utils.hexZeroPad(addr.toLowerCase(), 32).slice(2); // Remove '0x'
+  
+  // 3. Generate fixed IBC payload (optimized for 0.000001 ETH transfers)
+  const payloadSegments = [
+    // Header (fixed for SEI IBC)
     "0x0000000000000000000000000000000000000000000000000000000000000020",
     "0000000000000000000000000000000000000000000000000000000000000001",
     "0000000000000000000000000000000000000000000000000000000000000020",
     "0000000000000000000000000000000000000000000000000000000000000001",
+    
+    // Core parameters
     "0000000000000000000000000000000000000000000000000000000000000003",
     "0000000000000000000000000000000000000000000000000000000000000060",
     "00000000000000000000000000000000000000000000000000000000000002c0",
     "0000000000000000000000000000000000000000000000000000000000000140",
-    "0000000000000000000000000000000000000000000000000000000000000180",
-    "00000000000000000000000000000000000000000000000000000000000001c0",
-    "00000000000000000000000000000000000000000000000000000000e8d4a510",
-    "0000000000000000000000000000000000000000000000000000000000000002",
-    "0000000000000000000000000000000000000000000000000000000000000002",
-    "0000000000000000000000000000000000000000000000000000000000000120",
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "0000000000000000000000000000000000000000000000000000000000000028",
-    "00000000000000000000000000000000000000000000000000000000e8d4a510",
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    sender.padEnd(64, '0'),
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "0000000000000000000000000000000000" + receiver.padEnd(64, '0'),
-    "0000000000000000000000000000000000000000000000000000000000000000",
+    
+    // Addresses (properly padded)
+    encodeForPayload(sender),
+    encodeForPayload(receiver),
+    
+    // Footer (SEI-specific)
     "0000000000000000000000000000000000000000000000000000000014eeeeee",
     "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000000000",
     "0000000000000000000000000000000000000000000000000000000000000003",
     "5345490000000000000000000000000000000000000000000000000000000000",
-    "0000000000000000000000000000000000000000000000000000000000000003",
-    "5365690000000000000000000000000000000000000000000000000000000000",
     "0000000000000000000000000000000000000000000000000000000014e86bed",
     "5b0813430df660d17363b89fe9bd8232d8000000000000000000000000"
-  ].join('');
-
-  // Verify payload length
-  if (payloadTemplate.length % 2 !== 0) {
-    throw new Error("Generated payload has odd length");
-  }
-
-  return {
-    channelId: 2,
-    timeoutHeight: 0,
-    timeoutTimestamp: (BigInt(Date.now()) * 1_000_000n).toString(),
-    salt: '0x' + randomBytes(32).toString('hex'),
-    instruction: {
-      version: 0,
-      action: 2,
-      payload: payloadTemplate
-    }
-  };
+  ];
+  
+  return payloadSegments.join('');
 }
 
-// Usage example
-const params = generateIBCParams(
-  '0x1D903e72F84d24B8544D58c0786370Cf08a35790',
-  '0x1D903e72F84d24B8544D58c0786370Cf08a35790'
-);
-console.log(params.instruction.payload);
-
-// ================== MAIN BRIDGE FUNCTION ==================
-async function bridgeETH({
-  sourceChain,
-  destChain,
-  amount,
-  privateKey,
-  recipient = null,
-}) {
+// ================== TRANSACTION EXECUTOR ==================
+async function sendFixedAmountIBCTransfer() {
   try {
-    // Validate inputs
-    if (!RPC_URLS[sourceChain] || !RPC_URLS[destChain]) {
-      throw new Error(`Unsupported chain pair: ${sourceChain} -> ${destChain}`);
-    }
-    if (!privateKey || !privateKey.match(/^0x[0-9a-fA-F]{64}$/)) {
-      throw new Error('Invalid private key format');
-    }
-
-    debugLog("Starting ETH bridge", {
-      from: sourceChain,
-      to: destChain,
-      amount: amount.toString(),
-    });
-
-    // Setup provider and wallet
-    const provider = await getProvider(sourceChain);
-    const wallet = new ethers.Wallet(privateKey, provider);
+    // 1. Initialize provider and wallet
+    const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+    const wallet = new ethers.Wallet(CONFIG.TEST_PRIVATE_KEY, provider);
+    
+    // 2. Generate payload (sending to self in this example)
     const senderAddress = await wallet.getAddress();
-    const recipientAddress = recipient || senderAddress;  // If no recipient, use sender's address
-
-    // Check bridge contract exists
-    const bridgeAddress = UNION_CONTRACT[sourceChain];
-    if (!bridgeAddress) throw new Error(`No bridge contract on ${sourceChain}`);
-
-    // Create contract instance
-    const bridge = new ethers.Contract(
-      bridgeAddress,
-      [
-        'function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction) payable',
-      ],
-      wallet
-    );
-
-    // Generate fresh IBC params for each TX, passing sender and recipient
-    const IBC_PARAMS = generateIBCParams(senderAddress, recipientAddress);
-    debugLog("Generated IBC params", IBC_PARAMS);
-
-    // Execute bridge transfer
-    const tx = await executeTransaction(
-      bridge,
-      'send',
-      [
-        IBC_PARAMS.channelId,
-        IBC_PARAMS.timeoutHeight,
-        IBC_PARAMS.timeoutTimestamp,
-        IBC_PARAMS.salt,
-        [IBC_PARAMS.instruction.version, IBC_PARAMS.instruction.action, IBC_PARAMS.instruction.payload],
-      ],
-      {
-        value: ethers.utils.parseEther(amount.toString()),
-        ...GAS_SETTINGS,
-      },
-      'ETH Bridge Transfer'
-    );
-
-    return tx.hash;
-
-  } catch (error) {
-    debugLog("Bridge failed", {
-      error: error.message,
-      stack: error.stack,
+    const payload = generateIBCCallData(senderAddress, senderAddress);
+    
+    // 3. Prepare transaction (with gas optimization)
+    const txRequest = {
+      to: CONFIG.BRIDGE_CONTRACT,
+      data: "0xff0d7c2f" + payload.slice(2), // Function selector + payload
+      value: ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH),
+      chainId: CONFIG.CHAIN_ID,
+      gasLimit: CONFIG.GAS_LIMIT,
+    };
+    
+    // 4. Dynamic gas pricing (EIP-1559)
+    const feeData = await provider.getFeeData();
+    txRequest.maxPriorityFeePerGas = feeData.maxPriorityFeePerGas?.mul(2) || ethers.utils.parseUnits("2", "gwei");
+    txRequest.maxFeePerGas = feeData.maxFeePerGas?.mul(2) || ethers.utils.parseUnits("30", "gwei");
+    
+    // 5. Execute transfer
+    console.log(`🔄 Sending ${CONFIG.FIXED_AMOUNT_ETH} ETH via IBC...`);
+    const tx = await wallet.sendTransaction(txRequest);
+    
+    console.log("✅ Transaction broadcasted:", {
+      hash: tx.hash,
+      explorer: `https://testnet.seiscan.app/tx/${tx.hash}`,
+      amount: CONFIG.FIXED_AMOUNT_ETH,
     });
+    
+    return tx.hash;
+    
+  } catch (error) {
+    console.error("❌ Transfer failed:", error.reason || error.message);
     throw error;
   }
 }
 
-
-// ================== TEST EXECUTION ==================
-(async function main() {
+// ================== MAIN EXECUTION ==================
+(async () => {
   try {
-    console.log("🚀 Starting ETH bridge from SEI to CORN");
-
-    const txHash = await bridgeETH({
-      sourceChain: 'SEI',
-      destChain: 'CORN',
-      amount: '0.000001', // 0.000001 ETH
-      privateKey: TEST_PRIVATE_KEY,
-    });
-
-    console.log("✅ Bridge successful! TX Hash:", txHash);
-    console.log("⏳ Check the blockchain explorer for confirmation");
-
+    await sendFixedAmountIBCTransfer();
   } catch (error) {
-    console.error("❌ Bridge failed:", error.message);
-    process.exit(1);
+    process.exit(1); // Exit with error code
   }
 })();
