@@ -1,6 +1,6 @@
 import {
   http,
-  createMultiUnionClient
+  createUnionClient
 } from "@unionlabs/client";
 import { privateKeyToAccount } from "viem/accounts";
 
