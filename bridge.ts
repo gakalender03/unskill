@@ -7,9 +7,11 @@ const PRIVATE_KEY = "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b187
 const SEI_RPC_URL = "https://evm-rpc-testnet.sei-apis.com";
 const CORN_RPC_URL = "https://testnet-rpc.usecorn.com";
 
+// Corn's wrapped ETH contract address
+const WRAPPED_ETH_CONTRACT_ADDRESS_ON_CORN = "0x5FbE74A283f7954f10AA04C2eDf55578811aeb03";
+
 // Create SEI client
 const seiClient = createUnionClient({
-  chainId: "2",  // Check if this needs to be a string or number
   account: privateKeyToAccount(PRIVATE_KEY),
   transport: http(SEI_RPC_URL)
 });
@@ -24,10 +26,9 @@ async function bridgeETH() {
     const transferPayload = {
       amount: AMOUNT_TO_BRIDGE,
       autoApprove: false,
-      destinationChainId: "0", // Make sure this is a number, not a string
-      receiver: RECEIVER_ADDRESS,
-      denomAddress: "0x0000000000000000000000000000000000000000", // ETH address
-      gasPrice: 1200000000n, // 1.2 Gwei in wei
+      receiver: RECEIVER_ADDRESS,  // Your Corn address
+      denomAddress: WRAPPED_ETH_CONTRACT_ADDRESS_ON_CORN,  // Wrapped ETH contract address on Corn
+      gasPrice: 1200000000n,  // 1.2 Gwei in wei
       gas: 300000n
     };
 
