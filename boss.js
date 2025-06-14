@@ -125,7 +125,7 @@ async function bridgeETH({
       // These values should be adjusted based on the actual bridge requirements
       // Format: (uint8 sourceChainId, uint8 destChainId, bytes recipient)
       0: CHAINS[sourceChain],  // sourceChainId (converted to uint8)
-      1: CHAINS[destChain],    // destChainId (converted to uint8)
+      2: CHAINS[destChain],    // destChainId (converted to uint8)
       2: ethers.utils.hexZeroPad(recipientAddress, 32) // recipient address as bytes
     };
 
@@ -137,7 +137,7 @@ async function bridgeETH({
       bridge,
       'send',
       [
-        1, // channelId (example value, adjust as needed)
+        2, // channelId (example value, adjust as needed)
         0, // timeoutHeight (example value)
         Math.floor(Date.now() / 1000) + 3600, // timeoutTimestamp (1 hour from now)
         salt, // random salt
