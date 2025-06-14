@@ -74,20 +74,16 @@ async function executeTransaction(contract, method, args, overrides, operationNa
 }
 
 // ================== DYNAMIC IBC PARAMS ==================
-function generateIBCParams() {
+function generateIBCParams(senderAddress, recipientAddress) {
   // Current timestamp in nanoseconds (BigInt)
   const timeoutTimestamp = BigInt(Date.now()) * 1_000_000n; // Convert ms to ns
 
   // Generate cryptographically secure random salt (32 bytes)
   const salt = '0x' + randomBytes(32).toString('hex');
 
-  // Replace `x` with `0x` if present in sender and receiver addresses
-  const senderAddress = 'x1d903e72f84d24b8544d58c0786370cf08a3579';  // Example address, change dynamically
-  const receiverAddress = 'x1d903e72f84d24b8544d58c0786370cf08a3579'; // Example address, change dynamically
-
   // Ensure proper formatting of sender and receiver addresses
   const formattedSender = senderAddress.replace(/^x/, '0x');
-  const formattedReceiver = receiverAddress.replace(/^x/, '0x');
+  const formattedReceiver = recipientAddress.replace(/^x/, '0x');
 
   // Log the formatted addresses for debugging
   debugLog("Formatted Addresses", { senderAddress: formattedSender, receiverAddress: formattedReceiver });
@@ -105,9 +101,6 @@ function generateIBCParams() {
     },
   };
 }
-
-
-
 
 // ================== MAIN BRIDGE FUNCTION ==================
 async function bridgeETH({
@@ -189,7 +182,7 @@ async function bridgeETH({
 (async function main() {
   try {
     console.log("🚀 Starting ETH bridge from SEI to CORN");
-    
+
     const txHash = await bridgeETH({
       sourceChain: 'SEI',
       destChain: 'CORN',
