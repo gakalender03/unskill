@@ -89,6 +89,9 @@ function generateIBCParams() {
   const formattedSender = senderAddress.replace(/^x/, '0x');
   const formattedReceiver = receiverAddress.replace(/^x/, '0x');
 
+  // Log the formatted addresses for debugging
+  debugLog("Formatted Addresses", { senderAddress: formattedSender, receiverAddress: formattedReceiver });
+
   // Return payload with updated formatted addresses
   return {
     channelId: 2,
@@ -102,6 +105,7 @@ function generateIBCParams() {
     },
   };
 }
+
 
 
 
