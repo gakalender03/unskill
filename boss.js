@@ -44,7 +44,7 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     // Receiver address (padded to 32 bytes)
     ethers.utils.hexZeroPad(receiver, 32).slice(2),
     // Amount (0.000001 ETH in wei)
-    "0000000000000000000000000000000000000000000000000000000000000000",
+    ethers.utils.hexZeroPad(ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH).toHexString(), 32).slice(2),
     // Denom (empty for ETH)
     "0000000000000000000000000000000000000000000000000000000000000000",
     // Memo (empty)
@@ -52,7 +52,7 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     // SEI-specific footer (chain identifier)
     "5345490000000000000000000000000000000000000000000000000000000000",
     // Timestamp and salt (must match timeoutTimestamp)
-    "0000000000000000000000000000000000000000000000000000000014e86bed",
+    ethers.utils.hexZeroPad(timeoutTimestamp.toString(16), 32).slice(2),
     salt.slice(2), // Remove '0x' prefix
   ].join('');
 
@@ -79,7 +79,6 @@ function generateIBCCallData(senderAddress, recipientAddress) {
 
   return data;
 }
-
 
 // ================== TRANSACTION EXECUTOR ==================
 async function sendFixedAmountIBCTransfer() {
