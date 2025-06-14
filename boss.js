@@ -120,7 +120,7 @@ function generateIBCParams(senderAddress, recipientAddress) {
 }
 
 // Example usage:
-const validParams = generateValidIBCParams(
+const validParams = generateIBCParams(
   '0x1D903e72F84d24B8544D58c0786370Cf08a35790',
   '0x1D903e72F84d24B8544D58c0786370Cf08a35790'
 );
