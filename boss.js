@@ -20,48 +20,47 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   const channelId = 2;
   const timeoutHeight = 0;
   const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
-  const salt = ethers.utils.hexlify(randomBytes(32)); // ✅ Uses `utils.hexlify`
+  const salt = ethers.utils.hexlify(randomBytes(32));
+
+  // Construct the instruction payload directly as hex
+  const payloadHex = [
+    // Header
+    "0x0000000000000000000000000000000000000000000000000000000000000020",
+    "0000000000000000000000000000000000000000000000000000000000000001",
+    "0000000000000000000000000000000000000000000000000000000000000020",
+    "0000000000000000000000000000000000000000000000000000000000000001",
+
+    // Core parameters
+    "0000000000000000000000000000000000000000000000000000000000000003",
+    "0000000000000000000000000000000000000000000000000000000000000060",
+    "00000000000000000000000000000000000000000000000000000000000002c0",
+    "0000000000000000000000000000000000000000000000000000000000000140",
+
+    // Sender address (padded to 32 bytes)
+    ethers.utils.hexZeroPad(sender.toLowerCase(), 32).slice(2),
+
+    // Receiver address (padded to 32 bytes)
+    ethers.utils.hexZeroPad(receiver.toLowerCase(), 32).slice(2),
+
+    // Footer with SEI-specific data
+    "0000000000000000000000000000000000000000000000000000000000000003",
+    "5345490000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000014e86bed",
+    "5b0813430df660d17363b89fe9bd8232d8000000000000000000000000",
+  ].join('');
+
   // Construct the instruction (payloadSegments)
   const instruction = [
     // Instruction type 0 and 2
     0,
     2,
-    ethers.utils.hexlify(
-      ethers.utils.toUtf8Bytes(
-        [
-          // Header
-          "0x0000000000000000000000000000000000000000000000000000000000000020",
-          "0000000000000000000000000000000000000000000000000000000000000001",
-          "0000000000000000000000000000000000000000000000000000000000000020",
-          "0000000000000000000000000000000000000000000000000000000000000001",
-
-          // Core parameters
-          "0000000000000000000000000000000000000000000000000000000000000003",
-          "0000000000000000000000000000000000000000000000000000000000000060",
-          "00000000000000000000000000000000000000000000000000000000000002c0",
-          "0000000000000000000000000000000000000000000000000000000000000140",
-
-          // Sender address (padded to 32 bytes)
-          ethers.utils.hexZeroPad(sender.toLowerCase(), 32).slice(2),
-
-          // Receiver address (padded to 32 bytes)
-          ethers.utils.hexZeroPad(receiver.toLowerCase(), 32).slice(2),
-
-          // Footer with SEI-specific data
-          "0000000000000000000000000000000000000000000000000000000000000003",
-          "5345490000000000000000000000000000000000000000000000000000000000",
-          "0000000000000000000000000000000000000000000000000000000014e86bed",
-          "5b0813430df660d17363b89fe9bd8232d8000000000000000000000000",
-        ].join('')
-      )
-    ),
+    payloadHex // Use the hex string directly
   ];
 
   // Encode the function data
-  const iface = new ethers.utils.Interface([  // ✅ For v5
+  const iface = new ethers.utils.Interface([
     "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)",
-]);
-
+  ]);
 
   const data = iface.encodeFunctionData("send", [
     channelId,
