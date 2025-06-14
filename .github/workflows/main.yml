@@ -25,4 +25,4 @@ jobs:
 
       - name: Run index.js script
         
-        run: node boss.js
+        run: node boss.ts
