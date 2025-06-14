@@ -1,8 +1,6 @@
 const { ethers } = require('ethers');
 
 // ================== CONFIGURATION ==================
-
-
 const RPC_URLS = {
   SEI: 'https://evm-rpc-testnet.sei-apis.com',
   CORN: 'https://testnet.corn-rpc.com',
@@ -47,28 +45,28 @@ function debugLog(message, data = {}) {
   console.log(`[${timestamp}] DEBUG: ${message}`, JSON.stringify(safeData, null, 2));
 }
 
-async function getProvider(chainId) {
-  if (!providerCache.has(chainId)) {
-    const url = RPC_URLS[chainId];
-    if (!url) throw new Error(`No RPC URL for ${chainId}`);
+async function getProvider(chainName) {
+  if (!providerCache.has(chainName)) {
+    const url = RPC_URLS[chainName];
+    if (!url) throw new Error(`No RPC URL for ${chainName}`);
 
     try {
       const provider = new ethers.providers.JsonRpcProvider(url, {
-        chainId: CHAINS[chainId],
-        name: chainId.toLowerCase(),
+        chainId: chainName === 'SEI' ? 1328 : 21000001, // Direct chain IDs
+        name: chainName.toLowerCase(),
       });
 
       // Test connection
       await provider.getBlockNumber();
-      providerCache.set(chainId, provider);
-      debugLog(`Connected to RPC`, { url, chainId });
+      providerCache.set(chainName, provider);
+      debugLog(`Connected to RPC`, { url, chainName });
       return provider;
     } catch (error) {
       debugLog(`RPC failed`, { url, error: error.message });
-      throw new Error(`RPC connection failed for ${chainId}`);
+      throw new Error(`RPC connection failed for ${chainName}`);
     }
   }
-  return providerCache.get(chainId);
+  return providerCache.get(chainName);
 }
 
 async function executeTransaction(contract, method, args, overrides, operationName) {
@@ -99,7 +97,7 @@ async function bridgeETH({
 }) {
   try {
     // Validate inputs
-    if (!CHAINS[sourceChain] || !CHAINS[destChain]) {
+    if (!RPC_URLS[sourceChain] || !RPC_URLS[destChain]) {
       throw new Error(`Unsupported chain pair: ${sourceChain} -> ${destChain}`);
     }
     if (!privateKey || !privateKey.match(/^0x[0-9a-fA-F]{64}$/)) {
