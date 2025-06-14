@@ -13,36 +13,30 @@ const CONFIG = {
 
 // ================== IBC PAYLOAD GENERATOR ==================
 function generateIBCCallData(senderAddress, recipientAddress) {
-  // 1. Format addresses (checksum + validation)
+  // 1. Use strict address formatting
   const sender = ethers.utils.getAddress(senderAddress);
   const receiver = ethers.utils.getAddress(recipientAddress);
   
-  // 2. Encode addresses into 32-byte slots (right-padded)
-  const encodeForPayload = (addr) => 
-    ethers.utils.hexZeroPad(addr.toLowerCase(), 32).slice(2); // Remove '0x'
-  
-  // 3. Generate fixed IBC payload (optimized for 0.000001 ETH transfers)
+  // 2. Modified payload structure with proper instruction ordering
   const payloadSegments = [
-    // Header (fixed for SEI IBC)
-    "0x0000000000000000000000000000000000000000000000000000000000000020",
-    "0000000000000000000000000000000000000000000000000000000000000001",
+    // Header with proper instruction positioning (0, 2)
+    "0x0000000000000000000000000000000000000000000000000000000000000000", // Instruction 0
+    "0000000000000000000000000000000000000000000000000000000000000002",   // Instruction 2
     "0000000000000000000000000000000000000000000000000000000000000020",
     "0000000000000000000000000000000000000000000000000000000000000001",
     
-    // Core parameters
+    // Core parameters with explicit position markers
     "0000000000000000000000000000000000000000000000000000000000000003",
     "0000000000000000000000000000000000000000000000000000000000000060",
     "00000000000000000000000000000000000000000000000000000000000002c0",
     "0000000000000000000000000000000000000000000000000000000000000140",
     
-    // Addresses (properly padded)
-    encodeForPayload(sender),
-    encodeForPayload(receiver),
+    // Addresses with proper padding
+    ethers.utils.hexZeroPad(sender.toLowerCase(), 32).slice(2),
+    ethers.utils.hexZeroPad(receiver.toLowerCase(), 32).slice(2),
     
-    // Footer (SEI-specific)
-    "0000000000000000000000000000000000000000000000000000000014eeeeee",
-    "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000000000",
-    "0000000000000000000000000000000000000000000000000000000000000003",
+    // Footer with position enforcement
+    "0000000000000000000000000000000000000000000000000000000000000003", // Position 3
     "5345490000000000000000000000000000000000000000000000000000000000",
     "0000000000000000000000000000000000000000000000000000000014e86bed",
     "5b0813430df660d17363b89fe9bd8232d8000000000000000000000000"
@@ -50,6 +44,7 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   
   return payloadSegments.join('');
 }
+
 
 // ================== TRANSACTION EXECUTOR ==================
 async function sendFixedAmountIBCTransfer() {
