@@ -10,24 +10,23 @@ const CONFIG = {
   GAS_LIMIT: 300000,
 };
 
-// Helper function to encode an address for the payload
-function encodeAddress(address) {
-  // Remove '0x' prefix and left-pad with zeros to 32 bytes
-  return address.replace('0x', '').padStart(64, '0');
+// Helper function to encode an address in the correct format: 0x14 + address (no 0x)
+function encodeSeiAddress(address) {
+  return '14' + address.replace('0x', '').toLowerCase();
 }
 
 function generateIBCCallData(senderAddress, recipientAddress) {
-  const sender = encodeAddress(senderAddress);
-  const receiver = encodeAddress(recipientAddress);
+  const sender = encodeSeiAddress(senderAddress); // Format: 0x14 + address
+  const receiver = encodeSeiAddress(recipientAddress); // Same as sender
 
   // Constants for IBC call
   const channelId = 2;
   const timeoutHeight = 0;
-  const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000); // Nanoseconds
+  const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
   const salt = ethers.utils.hexlify(randomBytes(32));
 
-  // Pre-defined instruction payload (with placeholders for sender and receiver)
-  const instructionPayload = [
+  // Fixed parts of the payload (matches your valid example)
+  const staticPayloadParts = [
     // Header (dynamic array offset)
     "0000000000000000000000000000000000000000000000000000000000000020",
     // Instruction type (1 = IBC transfer)
@@ -42,10 +41,10 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     "00000000000000000000000000000000000000000000000000000000000002c0",
     // Offset to SEI footer (0x140)
     "0000000000000000000000000000000000000000000000000000000000000140",
-    // Sender address (dynamic - replaced below)
-    sender,
-    // Receiver address (dynamic - replaced below)
-    receiver,
+    // Sender address (0x14 + address)
+    sender.padStart(64, '0'), // Pad to 32 bytes
+    // Receiver address (0x14 + address)
+    receiver.padStart(64, '0'),
     // Amount (0.000001 ETH in wei)
     "00000000000000000000000000000000000000000000000000000000000f4240",
     // Denom (empty for ETH)
@@ -61,10 +60,19 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     // Additional padding (matches valid tx)
     "0000000000000000000000000000000000000000000000000000000000000000",
     "0000000000000000000000000000000000000000000000000000000000000000",
+    // ETH placeholder address (unchanged)
+    "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee".padStart(64, '0'),
+    // More padding
     "0000000000000000000000000000000000000000000000000000000000000000",
     "0000000000000000000000000000000000000000000000000000000000000000",
-    "0000000000000000000000000000000000000000000000000000000000000000",
-  ].join('');
+    // SEI string
+    "5365690000000000000000000000000000000000000000000000000000000000",
+    // More data (matches your example)
+    "e86bed5b0813430df660d17363b89fe9bd8232d8".padStart(64, '0'),
+    "0000000000000000000000000000000000000000000000000000000000000000"
+  ];
+
+  const instructionPayload = staticPayloadParts.join('');
 
   // Instruction format: [type, subtype, payload]
   const instruction = [0, 2, '0x' + instructionPayload];
@@ -83,6 +91,9 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     instruction,
   ]);
 }
+
+// Rest of the code (sendFixedAmountIBCTransfer, etc.) remains the same...
+
 
 async function sendFixedAmountIBCTransfer() {
   try {
