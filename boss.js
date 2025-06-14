@@ -23,6 +23,13 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
   const salt = ethers.utils.hexlify(randomBytes(32));
 
+  // Ensure all values are properly padded to 32 bytes
+  const senderPadded = ethers.utils.hexZeroPad(sender, 32).slice(2);
+  const receiverPadded = ethers.utils.hexZeroPad(receiver, 32).slice(2);
+  const amountPadded = ethers.utils.hexZeroPad(ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH).toHexString(), 32).slice(2);
+  const timeoutTimestampPadded = ethers.utils.hexZeroPad(timeoutTimestamp.toString(16), 32).slice(2);
+  const saltPadded = salt.slice(2);
+
   // Construct the payload as raw hex (matching the valid tx)
   const payloadHex = [
     // Header (dynamic array offset)
@@ -40,11 +47,11 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     // Offset to SEI footer (0x140 = 320 bytes)
     "0000000000000000000000000000000000000000000000000000000000000140",
     // Sender address (padded to 32 bytes)
-    ethers.utils.hexZeroPad(sender, 32).slice(2),
+    senderPadded,
     // Receiver address (padded to 32 bytes)
-    ethers.utils.hexZeroPad(receiver, 32).slice(2),
+    receiverPadded,
     // Amount (0.000001 ETH in wei)
-    ethers.utils.hexZeroPad(ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH).toHexString(), 32).slice(2),
+    amountPadded,
     // Denom (empty for ETH)
     "0000000000000000000000000000000000000000000000000000000000000000",
     // Memo (empty)
@@ -52,9 +59,14 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     // SEI-specific footer (chain identifier)
     "5345490000000000000000000000000000000000000000000000000000000000",
     // Timestamp and salt (must match timeoutTimestamp)
-    ethers.utils.hexZeroPad(timeoutTimestamp.toString(16), 32).slice(2),
-    salt.slice(2), // Remove '0x' prefix
+    timeoutTimestampPadded,
+    saltPadded, // Remove '0x' prefix
   ].join('');
+
+  // Validate the payloadHex is a valid hex string
+  if (!ethers.utils.isHexString("0x" + payloadHex)) {
+    throw new Error("Invalid payloadHex generated");
+  }
 
   // Instruction format: [type, subtype, payload]
   const instruction = [
