@@ -74,7 +74,6 @@ async function executeTransaction(contract, method, args, overrides, operationNa
 }
 
 // ================== DYNAMIC IBC PARAMS ==================
-const { randomBytes } = require('crypto');
 
 function generateValidIBCParams(senderAddress, recipientAddress) {
   // Timestamp in nanoseconds (BigInt)
