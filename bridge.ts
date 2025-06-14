@@ -9,7 +9,7 @@ const CORN_RPC_URL = "https://testnet-rpc.usecorn.com";
 
 // Create SEI client
 const seiClient = createUnionClient({
-  chainId: "1328",
+  chainId: 1328,
   account: privateKeyToAccount(PRIVATE_KEY),
   transport: http(SEI_RPC_URL)
 });
