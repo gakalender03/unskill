@@ -22,7 +22,7 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
   const salt = ethers.utils.hexlify(randomBytes(32));
 
-  // Construct the payload as raw hex (no UTF-8 conversion)
+  // Construct the payload as raw hex (matching the valid tx)
   const payloadHex = [
     // Header (dynamic array offset)
     "0000000000000000000000000000000000000000000000000000000000000020",
@@ -42,6 +42,12 @@ function generateIBCCallData(senderAddress, recipientAddress) {
     ethers.utils.hexZeroPad(sender, 32).slice(2),
     // Receiver address (padded to 32 bytes)
     ethers.utils.hexZeroPad(receiver, 32).slice(2),
+    // Amount (0.000001 ETH in wei)
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    // Denom (empty for ETH)
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    // Memo (empty)
+    "0000000000000000000000000000000000000000000000000000000000000000",
     // SEI-specific footer (chain identifier)
     "5345490000000000000000000000000000000000000000000000000000000000",
     // Timestamp and salt (must match timeoutTimestamp)
