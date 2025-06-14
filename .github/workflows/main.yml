@@ -19,7 +19,9 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install @unionlabs/client viem zod
+        run: npx tsc --init
+             npm install typescript ts-node @unionlabs/client viem @types/node
+            
 
       - name: Run index.js script
         
