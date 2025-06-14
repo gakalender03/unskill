@@ -9,7 +9,7 @@ const PRIVATE_KEY = "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b187
 const clients = createUnionClient([
   {
     chainId: "1328", // Sei Testnet EVM Chain ID
-    transport: http("https://1328.rpc.thirdweb.com"),
+    transport: http("https://evm-rpc-testnet.sei-apis.com"),
     account: privateKeyToAccount(PRIVATE_KEY),
   },
   {
