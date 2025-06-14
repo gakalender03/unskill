@@ -11,7 +11,7 @@
     "axios": "^1.6.0",
     "blessed": "^0.1.81",
     "blessed-contrib": "^4.10.3",
-    "ethers": "^6.8.1",
+    "ethers": "^5.7.2",
     "moment-timezone": "^0.5.44"
   }
 }
