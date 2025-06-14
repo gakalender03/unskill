@@ -1,73 +1,65 @@
-// bridge-sei-to-corn.ts
-import { seiUnionClient } from "./client";
-import type { TransferAssetsParameters } from "@unionlabs/client";
+import { privateKeyToAccount } from "viem/accounts";
+import { createUnionClient, http } from "@unionlabs/client";
+import { formatEther } from "viem";
 
-// Configuration constants
-const AMOUNT_TO_BRIDGE = BigInt(1); // 0.000001 ETH = 1 wei (adjust if you need different precision)
-const CORN_RECEIVER_ADDRESS = "0x1D903e72F84d24B8544D58c0786370Cf08a35790"; // Replace with your Corn address
+// Configuration
+const PRIVATE_KEY = "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52";
+const SEI_RPC_URL = "https://evm-rpc-testnet.sei-apis.com";
+const CORN_RPC_URL = "https://testnet-rpc.usecorn.com";
 
-async function bridgeSeiToCorn() {
-  // Prepare transfer payload
-  const transferPayload = {
-    amount: AMOUNT_TO_BRIDGE,
-    autoApprove: false, // We'll approve manually
-    destinationChainId: "corn.21000001", // Corn channel ID
-    receiver: CORN_RECEIVER_ADDRESS,
-    denomAddress: "0x0000000000000000000000000000000000000000", // Native ETH address
-  } satisfies TransferAssetsParameters<"sei.1328">;
+// Create SEI client
+const seiClient = createUnionClient({
+  chainId: "sei.1328",
+  account: privateKeyToAccount(PRIVATE_KEY),
+  transport: http(SEI_RPC_URL)
+});
 
-  console.log("Starting Sei to Corn bridge...");
-  console.log(`Amount: ${formatEther(AMOUNT_TO_BRIDGE)} ETH`);
-  
+// ETH amount in wei (0.000001 ETH = 10^12 wei)
+const AMOUNT_TO_BRIDGE = 1000000000000n; // 0.000001 ETH
+const RECEIVER_ADDRESS = "0x1D903e72F84d24B8544D58c0786370Cf08a35790"; // Replace with your Corn address
+
+async function bridgeETH() {
   try {
-    // 1. Approval step
-    console.log("Approving token transfer...");
-    const approval = await seiUnionClient.approveTransaction({
-      ...transferPayload,
-      gasPrice: 1.2 * 1e9, // 1.2 Gwei
-      gas: 300000,
-    });
+    // Prepare transfer payload
+    const transferPayload = {
+      amount: AMOUNT_TO_BRIDGE,
+      autoApprove: false,
+      destinationChainId: "corn.21000001",
+      receiver: RECEIVER_ADDRESS,
+      denomAddress: "0x0000000000000000000000000000000000000000", // ETH address
+      gasPrice: 1200000000n, // 1.2 Gwei in wei
+      gas: 300000n
+    };
+
+    console.log(`Bridging ${formatEther(AMOUNT_TO_BRIDGE)} ETH from SEI to Corn...`);
+
+    // 1. Approval
+    console.log("Approving transaction...");
+    const approval = await seiClient.approveTransaction(transferPayload);
     
     if (approval.isErr()) {
       console.error("Approval failed:", approval.error);
-      throw approval.error;
+      process.exit(1);
     }
     
-    console.log(`✅ Approval successful. Tx hash: ${approval.value}`);
-    
-    // 2. Transfer step
-    console.log("Initiating bridge transfer...");
-    const transfer = await seiUnionClient.transferAsset({
-      ...transferPayload,
-      gasPrice: 1.2 * 1e9, // 1.2 Gwei
-      gas: 300000,
-    });
+    console.log(`✅ Approval Tx Hash: ${approval.value}`);
+
+    // 2. Transfer
+    console.log("Initiating transfer...");
+    const transfer = await seiClient.transferAsset(transferPayload);
     
     if (transfer.isErr()) {
       console.error("Transfer failed:", transfer.error);
-      throw transfer.error;
+      process.exit(1);
     }
-    
-    console.log(`✅ Bridge initiated successfully. Tx hash: ${transfer.value}`);
-    console.log("Check the Union dashboard for bridge status updates.");
-    
-    return {
-      approvalTxHash: approval.value,
-      bridgeTxHash: transfer.value,
-    };
-    
+
+    console.log(`✅ Transfer Tx Hash: ${transfer.value}`);
+    console.log("Bridge initiated successfully!");
+
   } catch (error) {
-    console.error("❌ Bridge process failed:", error);
-    throw error;
+    console.error("Error:", error);
+    process.exit(1);
   }
 }
 
-// Helper function to format ETH values
-function formatEther(wei: bigint): string {
-  return (Number(wei) / 1e18).toFixed(6);
-}
-
-// Execute the bridge
-bridgeSeiToCorn()
-  .then((result) => console.log("Bridge result:", result))
-  .catch(() => process.exit(1));
+bridgeETH();
