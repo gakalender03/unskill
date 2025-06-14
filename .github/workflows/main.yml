@@ -23,4 +23,4 @@ jobs:
 
       - name: Run index.js script
         
-        run: node parapat
+        run: npx ts-node bridge.ts
