@@ -9,7 +9,7 @@ const CORN_RPC_URL = "https://testnet-rpc.usecorn.com";
 
 // Create SEI client
 const seiClient = createUnionClient({
-  chainId: 1328,
+  chainId: 1328,  // Check if this needs to be a string or number
   account: privateKeyToAccount(PRIVATE_KEY),
   transport: http(SEI_RPC_URL)
 });
@@ -24,7 +24,7 @@ async function bridgeETH() {
     const transferPayload = {
       amount: AMOUNT_TO_BRIDGE,
       autoApprove: false,
-      destinationChainId: 21000001,
+      destinationChainId: 21000001, // Make sure this is a number, not a string
       receiver: RECEIVER_ADDRESS,
       denomAddress: "0x0000000000000000000000000000000000000000", // ETH address
       gasPrice: 1200000000n, // 1.2 Gwei in wei
@@ -36,18 +36,18 @@ async function bridgeETH() {
     // 1. Approval
     console.log("Approving transaction...");
     const approval = await seiClient.approveTransaction(transferPayload);
-    
+
     if (approval.isErr()) {
       console.error("Approval failed:", approval.error);
       process.exit(1);
     }
-    
+
     console.log(`✅ Approval Tx Hash: ${approval.value}`);
 
     // 2. Transfer
     console.log("Initiating transfer...");
     const transfer = await seiClient.transferAsset(transferPayload);
-    
+
     if (transfer.isErr()) {
       console.error("Transfer failed:", transfer.error);
       process.exit(1);
