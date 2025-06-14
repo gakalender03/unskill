@@ -106,6 +106,7 @@ function generateIBCParams(senderAddress, recipientAddress) {
 }
 
 
+
 // ================== MAIN BRIDGE FUNCTION ==================
 async function bridgeETH({
   sourceChain,
