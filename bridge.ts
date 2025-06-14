@@ -24,7 +24,7 @@ async function bridgeETH() {
     const transferPayload = {
       amount: AMOUNT_TO_BRIDGE,
       autoApprove: false,
-      destinationChainId: 21000001, // Make sure this is a number, not a string
+      destinationChainId: "177", // Make sure this is a number, not a string
       receiver: RECEIVER_ADDRESS,
       denomAddress: "0x0000000000000000000000000000000000000000", // ETH address
       gasPrice: 1200000000n, // 1.2 Gwei in wei
