@@ -1,7 +1,6 @@
 const { ethers } = require('ethers');
 const { randomBytes } = require('crypto');
 
-// ================== CONFIGURATION ==================
 const CONFIG = {
   RPC_URL: 'https://evm-rpc-testnet.sei-apis.com',
   CHAIN_ID: 1328,
@@ -10,8 +9,6 @@ const CONFIG = {
   FIXED_AMOUNT_ETH: '0.000001', // Exactly 0.000001 ETH
   GAS_LIMIT: 300000,
 };
-
-// ================== IBC PAYLOAD GENERATOR ==================
 
 function generateIBCCallData(senderAddress, recipientAddress) {
   const sender = ethers.utils.getAddress(senderAddress);
@@ -98,9 +95,6 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   return data;
 }
 
-
-
-// ================== TRANSACTION EXECUTOR ==================
 async function sendFixedAmountIBCTransfer() {
   try {
     const provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
@@ -137,7 +131,6 @@ async function sendFixedAmountIBCTransfer() {
   }
 }
 
-// ================== MAIN EXECUTION ==================
 (async () => {
   try {
     await sendFixedAmountIBCTransfer();
