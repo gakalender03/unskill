@@ -58,9 +58,10 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   ];
 
   // Encode the function data
-  const iface = new ethers.Interface([
+  const iface = new ethers.utils.Interface([  // ✅ For v5
     "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)",
-  ]);
+]);
+
 
   const data = iface.encodeFunctionData("send", [
     channelId,
