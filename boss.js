@@ -24,12 +24,17 @@ const GAS_SETTINGS = {
 
 const TEST_PRIVATE_KEY = "0x63535fd448a93766c11bb51ae2db0e635f389e2a81b4650bd9304b1874237d52";
 
-// IBC-specific parameters (adjust as needed)
+// IBC-specific parameters (based on your data)
 const IBC_PARAMS = {
-  channelId: 0,       // Replace with actual channel ID
-  timeoutHeight: 0,   // Replace with block height timeout
-  timeoutTimestamp: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
-  salt: ethers.utils.formatBytes32String("sei-corn-bridge"), // Random salt
+  channelId: 2, // uint32
+  timeoutHeight: 0, // uint64
+  timeoutTimestamp: "1749851613000000000", // uint64
+  salt: "0x6b396f686fc220e5e22b48226140117c553f16b6c6ae2bd0150d4a4e068d2ec8", // bytes32
+  instruction: {
+    version: 0, // uint8
+    action: 2, // uint8
+    payload: "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000e8d4a510000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014a8068e71a3f46c888c39ea5deba318c16393573b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000014eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000035345490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353656900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000", // bytes
+  },
 };
 
 // ================== UTILITIES ==================
@@ -87,7 +92,7 @@ async function executeTransaction(contract, method, args, overrides, operationNa
   return receipt;
 }
 
-// ================== MAIN BRIDGE FUNCTION (IBC-compatible) ==================
+// ================== MAIN BRIDGE FUNCTION ==================
 async function bridgeETH({
   sourceChain,
   destChain,
@@ -104,7 +109,7 @@ async function bridgeETH({
       throw new Error('Invalid private key format');
     }
 
-    debugLog("Starting ETH bridge (IBC)", {
+    debugLog("Starting ETH bridge", {
       from: sourceChain,
       to: destChain,
       amount: amount.toString(),
@@ -120,7 +125,7 @@ async function bridgeETH({
     const bridgeAddress = UNION_CONTRACT[sourceChain];
     if (!bridgeAddress) throw new Error(`No bridge contract on ${sourceChain}`);
 
-    // Create contract instance (ABI includes `send` function)
+    // Create contract instance
     const bridge = new ethers.Contract(
       bridgeAddress,
       [
@@ -128,18 +133,6 @@ async function bridgeETH({
       ],
       wallet
     );
-
-    // Construct the IBC instruction (adjust based on contract requirements)
-    const instruction = {
-      // Example: (uint8 version, uint8 action, bytes payload)
-      // Replace with actual values expected by the contract
-      0: 1, // version
-      1: 1, // action (1 = transfer)
-      2: ethers.utils.defaultAbiCoder.encode(
-        ["address", "uint256"],
-        [recipientAddress, ethers.utils.parseEther(amount.toString())]
-      ),
-    };
 
     // Execute bridge transfer
     const tx = await executeTransaction(
@@ -150,13 +143,13 @@ async function bridgeETH({
         IBC_PARAMS.timeoutHeight,
         IBC_PARAMS.timeoutTimestamp,
         IBC_PARAMS.salt,
-        instruction,
+        [IBC_PARAMS.instruction.version, IBC_PARAMS.instruction.action, IBC_PARAMS.instruction.payload],
       ],
       {
         value: ethers.utils.parseEther(amount.toString()),
         ...GAS_SETTINGS,
       },
-      'IBC Bridge Transfer'
+      'ETH Bridge Transfer'
     );
 
     return tx.hash;
@@ -173,7 +166,7 @@ async function bridgeETH({
 // ================== TEST EXECUTION ==================
 (async function main() {
   try {
-    console.log("🚀 Starting ETH bridge from SEI to CORN (IBC)");
+    console.log("🚀 Starting ETH bridge from SEI to CORN");
     
     const txHash = await bridgeETH({
       sourceChain: 'SEI',
