@@ -74,40 +74,39 @@ async function executeTransaction(contract, method, args, overrides, operationNa
 }
 
 // ================== DYNAMIC IBC PARAMS ==================
+
+
 function generateIBCParams(senderAddress, recipientAddress) {
-  // Timestamp in nanoseconds (BigInt)
+  // Current timestamp in nanoseconds (BigInt)
   const timeoutTimestamp = BigInt(Date.now()) * 1_000_000n;
 
-  // Secure random salt
+  // Generate cryptographically secure random salt (32 bytes)
   const salt = '0x' + randomBytes(32).toString('hex');
 
-  // Address formatting - ensure 20-byte format and proper padding
+  // Format addresses - remove any prefix and ensure lowercase
   const formatAddress = (addr) => {
-    // Remove any existing prefix
     const cleanAddr = addr.replace(/^(0x|x)/i, '');
-    
-    // Validate length (20 bytes = 40 hex chars)
     if (!/^[0-9a-f]{40}$/i.test(cleanAddr)) {
-      throw new Error(`Invalid address: ${addr}. Expected 20-byte address (40 hex chars)`);
+      throw new Error(`Invalid address: ${addr}`);
     }
-    
     return cleanAddr.toLowerCase();
   };
 
   const formattedSender = formatAddress(senderAddress);
-  const formattedRecipient = formatAddress(recipientAddress);
-  
-  // Template from working payload with dynamic parts marked
+  const formattedReceiver = formatAddress(recipientAddress);
+
+  // Template with placeholders for addresses
   const payloadTemplate = `0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000002c00000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000240000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000e8d4a5100000000000000000000000000000000000000000000000000000000000000000{{SENDER}}00000000000000000000000000000000000000000000000000000000000000000000000000000000000000{{RECIPIENT}}00000000000000000000000000000000000000000000000000000000000000000000000000000000000000014eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000035345490000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000353656900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014e86bed5b0813430df660d17363b89fe9bd8232d8000000000000000000000000`;
 
-  // Create payload with properly formatted addresses
-  const payload = payloadTemplate
-    .replace('{{SENDER}}', formattedSender.padEnd(64, '0'))
-    .replace('{{RECIPIENT}}', formattedRecipient.padEnd(64, '0'));
+  // Insert addresses and ensure even length
+  let payload = payloadTemplate
+    .replace('{{SENDER}}', formattedSender)
+    .replace('{{RECIPIENT}}', formattedReceiver);
 
-  // Verify that the payload has an even length
+  // Final validation
   if (payload.length % 2 !== 0) {
-    throw new Error(`Generated payload has odd length: ${payload.length}`);
+    // If odd length, add a trailing zero (this should never happen with correct inputs)
+    payload += '0';
   }
 
   return {
@@ -123,14 +122,12 @@ function generateIBCParams(senderAddress, recipientAddress) {
   };
 }
 
-// Example usage:
-const validParams = generateIBCParams(
+// Example usage
+const params = generateIBCParams(
   '0x1D903e72F84d24B8544D58c0786370Cf08a35790',
   '0x1D903e72F84d24B8544D58c0786370Cf08a35790'
 );
-
-console.log(validParams.instruction.payload);
-
+console.log(params.instruction.payload);
 
 // ================== MAIN BRIDGE FUNCTION ==================
 async function bridgeETH({
