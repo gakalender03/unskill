@@ -82,8 +82,8 @@ function generateIBCParams() {
   const salt = '0x' + randomBytes(32).toString('hex');
 
   // Replace `x` with `0x` if present in sender and receiver addresses
-  const senderAddress = 'x1d903e72f84d24b8544d58c0786370cf08a357900000000000000000000000000';  // Example address, change dynamically
-  const receiverAddress = 'x1d903e72f84d24b8544d58c0786370cf08a357900000000000000000000000000'; // Example address, change dynamically
+  const senderAddress = 'x1d903e72f84d24b8544d58c0786370cf08a3579';  // Example address, change dynamically
+  const receiverAddress = 'x1d903e72f84d24b8544d58c0786370cf08a3579'; // Example address, change dynamically
 
   // Ensure proper formatting of sender and receiver addresses
   const formattedSender = senderAddress.replace(/^x/, '0x');
