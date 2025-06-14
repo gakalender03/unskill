@@ -22,46 +22,46 @@ function generateIBCCallData(senderAddress, recipientAddress) {
   const timeoutTimestamp = BigInt(Math.floor(Date.now() / 1000)) * BigInt(1000000000);
   const salt = ethers.utils.hexlify(randomBytes(32));
 
-  // Construct the instruction payload directly as hex
+  // Construct the payload as raw hex (no UTF-8 conversion)
   const payloadHex = [
-    // Header
-    "0x0000000000000000000000000000000000000000000000000000000000000020",
-    "0000000000000000000000000000000000000000000000000000000000000001",
+    // Header (dynamic array offset)
     "0000000000000000000000000000000000000000000000000000000000000020",
+    // Instruction type (1 = IBC transfer)
     "0000000000000000000000000000000000000000000000000000000000000001",
-
-    // Core parameters
+    // Dynamic offset for payload (0x20 = 32 bytes)
+    "0000000000000000000000000000000000000000000000000000000000000020",
+    // Core parameters (3 fields)
     "0000000000000000000000000000000000000000000000000000000000000003",
+    // Offset to sender (0x60 = 96 bytes)
     "0000000000000000000000000000000000000000000000000000000000000060",
+    // Offset to receiver (0x2c0 = 704 bytes)
     "00000000000000000000000000000000000000000000000000000000000002c0",
+    // Offset to SEI footer (0x140 = 320 bytes)
     "0000000000000000000000000000000000000000000000000000000000000140",
-
     // Sender address (padded to 32 bytes)
-    ethers.utils.hexZeroPad(sender.toLowerCase(), 32).slice(2),
-
+    ethers.utils.hexZeroPad(sender, 32).slice(2),
     // Receiver address (padded to 32 bytes)
-    ethers.utils.hexZeroPad(receiver.toLowerCase(), 32).slice(2),
-
-    // Footer with SEI-specific data
-    "0000000000000000000000000000000000000000000000000000000000000003",
+    ethers.utils.hexZeroPad(receiver, 32).slice(2),
+    // SEI-specific footer (chain identifier)
     "5345490000000000000000000000000000000000000000000000000000000000",
+    // Timestamp and salt (must match timeoutTimestamp)
     "0000000000000000000000000000000000000000000000000000000014e86bed",
-    "5b0813430df660d17363b89fe9bd8232d8000000000000000000000000",
+    salt.slice(2), // Remove '0x' prefix
   ].join('');
 
-  // Construct the instruction (payloadSegments)
+  // Instruction format: [type, subtype, payload]
   const instruction = [
-    // Instruction type 0 and 2
-    0,
-    2,
-    payloadHex // Use the hex string directly
+    0, // Type 0 (IBC)
+    2, // Subtype 2 (transfer)
+    "0x" + payloadHex, // Raw hex payload
   ];
 
-  // Encode the function data
+  // ABI for the bridge contract
   const iface = new ethers.utils.Interface([
     "function send(uint32 channelId, uint64 timeoutHeight, uint64 timeoutTimestamp, bytes32 salt, (uint8,uint8,bytes) instruction)",
   ]);
 
+  // Encode the transaction
   const data = iface.encodeFunctionData("send", [
     channelId,
     timeoutHeight,
@@ -87,7 +87,7 @@ async function sendFixedAmountIBCTransfer() {
     // 3. Prepare transaction (with gas optimization)
     const txRequest = {
       to: CONFIG.BRIDGE_CONTRACT,
-      data: payload, // Use the encoded payload directly
+      data: payload,
       value: ethers.utils.parseEther(CONFIG.FIXED_AMOUNT_ETH),
       chainId: CONFIG.CHAIN_ID,
       gasLimit: CONFIG.GAS_LIMIT,
