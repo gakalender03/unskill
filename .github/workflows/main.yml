@@ -25,4 +25,4 @@ jobs:
 
       - name: Run index.js script
         
-        run: npx ts-node bridge.ts
+        run: node boss.js
